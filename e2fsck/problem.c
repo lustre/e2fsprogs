@@ -1083,6 +1083,14 @@ static struct e2fsck_problem problem_table[] = {
 	{ PR_1D_CLONE_ERROR,
 	  N_("Couldn't clone file: %m\n"), PROMPT_NONE, 0 },
 
+	/* File with shared blocks found */
+	{ PR_1D_DISCONNECT_QUESTION,
+	  N_("File with shared blocks found\n"), PROMPT_CONNECT, 0 },
+
+	/* Couldn't unlink file (error) */
+	{ PR_1D_DISCONNECT_ERROR,
+	  N_("Couldn't unlink file: %m\n"), PROMPT_NONE, 0 },
+
 	/* Pass 2 errors */
 
 	/* Pass 2: Checking directory structure */
