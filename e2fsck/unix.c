@@ -657,6 +657,49 @@ static void signal_cancel(int sig EXT2FS_ATTR((unused)))
 }
 #endif
 
+static void initialize_profile_options(e2fsck_t ctx)
+{
+	char *tmp;
+
+	/* [options] shared=preserve|lost+found|delete */
+	tmp = NULL;
+	ctx->shared = E2F_SHARED_PRESERVE;
+	profile_get_string(ctx->profile, "options", "shared", 0,
+			   "preserve", &tmp);
+	if (tmp) {
+		if (strcmp(tmp, "preserve") == 0)
+			ctx->shared = E2F_SHARED_PRESERVE;
+		else if (strcmp(tmp, "delete") == 0)
+			ctx->shared = E2F_SHARED_DELETE;
+		else if (strcmp(tmp, "lost+found") == 0)
+			ctx->shared = E2F_SHARED_LPF;
+		else {
+			com_err(ctx->program_name, 0,
+				_("configuration error: 'shared=%s'"), tmp);
+			fatal_error(ctx, 0);
+		}
+		free(tmp);
+	}
+
+	/* [options] clone=dup|zero */
+	tmp = NULL;
+	ctx->clone = E2F_CLONE_DUP;
+	profile_get_string(ctx->profile, "options", "clone", 0,
+			   "dup", &tmp);
+	if (tmp) {
+		if (strcmp(tmp, "dup") == 0)
+			ctx->clone = E2F_CLONE_DUP;
+		else if (strcmp(tmp, "zero") == 0)
+			ctx->clone = E2F_CLONE_ZERO;
+		else {
+			com_err(ctx->program_name, 0,
+				_("configuration error: 'clone=%s'"), tmp);
+			fatal_error(ctx, 0);
+		}
+		free(tmp);
+	}
+}
+
 static void parse_extended_opts(e2fsck_t ctx, const char *opts)
 {
 	char	*buf, *token, *next, *p, *arg;
@@ -707,6 +750,36 @@ static void parse_extended_opts(e2fsck_t ctx, const char *opts)
 		} else if (strcmp(token, "fragcheck") == 0) {
 			ctx->options |= E2F_OPT_FRAGCHECK;
 			continue;
+		/* -E shared=preserve|lost+found|delete */
+		} else if (strcmp(token, "shared") == 0) {
+			if (!arg) {
+				extended_usage++;
+				continue;
+			}
+			if (strcmp(arg, "preserve") == 0) {
+				ctx->shared = E2F_SHARED_PRESERVE;
+			} else if (strcmp(arg, "lost+found") == 0) {
+				ctx->shared = E2F_SHARED_LPF;
+			} else if (strcmp(arg, "delete") == 0) {
+				ctx->shared = E2F_SHARED_DELETE;
+			} else {
+				extended_usage++;
+				continue;
+			}
+		/* -E clone=dup|zero */
+		} else if (strcmp(token, "clone") == 0) {
+			if (!arg) {
+				extended_usage++;
+				continue;
+			}
+			if (strcmp(arg, "dup") == 0) {
+				ctx->clone = E2F_CLONE_DUP;
+			} else if (strcmp(arg, "zero") == 0) {
+				ctx->clone = E2F_CLONE_ZERO;
+			} else {
+				extended_usage++;
+				continue;
+			}
 		} else if (strcmp(token, "journal_only") == 0) {
 			if (arg) {
 				extended_usage++;
@@ -771,6 +844,8 @@ static void parse_extended_opts(e2fsck_t ctx, const char *opts)
 		fputs("\tjournal_only\n", stderr);
 		fputs("\tdiscard\n", stderr);
 		fputs("\tnodiscard\n", stderr);
+		fputs(("\tshared=<preserve|lost+found|delete>\n"), stderr);
+		fputs(("\tclone=<dup|zero>\n"), stderr);
 		fputs("\toptimize_extents\n", stderr);
 		fputs("\tno_optimize_extents\n", stderr);
 		fputs("\tinode_count_fullmap\n", stderr);
@@ -844,6 +919,8 @@ static errcode_t PRS(int argc, char *argv[], e2fsck_t *ret_ctx)
 		config_fn[0] = cp;
 	profile_set_syntax_err_cb(syntax_err_report);
 	profile_init(config_fn, &ctx->profile);
+
+	initialize_profile_options(ctx);
 
 	phys_mem_kb = get_memory_size() / 1024;
 	ctx->readahead_kb = ~0ULL;

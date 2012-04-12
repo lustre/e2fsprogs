@@ -211,6 +211,17 @@ struct resource_track {
 #define E2F_PASS_5	5
 #define E2F_PASS_1B	6
 
+enum shared_opt {
+	E2F_SHARED_PRESERVE = 0,
+	E2F_SHARED_DELETE,
+	E2F_SHARED_LPF
+};
+
+enum clone_opt {
+	E2F_CLONE_DUP = 0,
+	E2F_CLONE_ZERO
+};
+
 /*
  * Define the extended attribute refcount structure
  */
@@ -387,6 +398,8 @@ struct e2fsck_struct {
 	time_t now;
 	time_t time_fudge;	/* For working around buggy init scripts */
 	int ext_attr_ver;
+	enum shared_opt shared;
+	enum clone_opt clone;
 	profile_t	profile;
 	int blocks_per_page;
 	ext2_u32_list encrypted_dirs;
