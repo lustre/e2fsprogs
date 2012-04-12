@@ -966,6 +966,10 @@ static struct e2fsck_problem problem_table[] = {
 	  N_("@i %i, end of extent exceeds allowed value\n\t(logical @b %c, physical @b %b, len %N)\n"),
 	  PROMPT_CLEAR, 0 },
 
+	/* Bad extended attribute value in inode */
+	{ PR_1_INODE_EA_BAD_VALUE,
+	  N_("@a in @i %i is corrupt (@n value)."),
+	  PROMPT_CLEAR, 0},
 
 	/* Pass 1b errors */
 
