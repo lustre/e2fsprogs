@@ -743,7 +743,6 @@ static errcode_t PRS(int argc, char *argv[], e2fsck_t *ret_ctx)
 #ifdef HAVE_SIGNAL_H
 	struct sigaction	sa;
 #endif
-	char		*extended_opts = 0;
 	char		*cp;
 	int 		res;		/* result of sscanf */
 #ifdef CONFIG_JBD_DEBUG
@@ -776,6 +775,13 @@ static errcode_t PRS(int argc, char *argv[], e2fsck_t *ret_ctx)
 	else
 		ctx->program_name = "e2fsck";
 
+	cp = getenv("E2FSCK_CONFIG");
+	if (cp != NULL)
+		config_fn[0] = cp;
+	profile_set_syntax_err_cb(syntax_err_report);
+	profile_init(config_fn, &ctx->profile);
+
+
 	while ((c = getopt (argc, argv, "panyrcC:B:dE:fvtFVM:b:I:j:P:l:L:N:SsDk")) != EOF)
 		switch (c) {
 		case 'C':
@@ -806,7 +812,7 @@ static errcode_t PRS(int argc, char *argv[], e2fsck_t *ret_ctx)
 			ctx->options |= E2F_OPT_COMPRESS_DIRS;
 			break;
 		case 'E':
-			extended_opts = optarg;
+			parse_extended_opts(ctx, optarg);
 			break;
 		case 'p':
 		case 'a':
@@ -943,13 +949,6 @@ static errcode_t PRS(int argc, char *argv[], e2fsck_t *ret_ctx)
 			argv[optind]);
 		fatal_error(ctx, 0);
 	}
-	if (extended_opts)
-		parse_extended_opts(ctx, extended_opts);
-
-	if ((cp = getenv("E2FSCK_CONFIG")) != NULL)
-		config_fn[0] = cp;
-	profile_set_syntax_err_cb(syntax_err_report);
-	profile_init(config_fn, &ctx->profile);
 
 	profile_get_boolean(ctx->profile, "options", "report_time", 0, 0,
 			    &c);
