@@ -781,6 +781,13 @@ struct problem_context {
 /* Couldn't clone file (error) */
 #define PR_1D_CLONE_ERROR	0x013008
 
+/* File with shared blocks found */
+#define PR_1D_DISCONNECT_QUESTION 0x013009
+
+/* Couldn't unlink file (error) */
+#define PR_1D_DISCONNECT_ERROR	0x01300A
+
+
 /*
  * Pass 1e --- rebuilding extent trees
  */
