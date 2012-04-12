@@ -3314,6 +3314,7 @@ _("Warning: The journal is dirty. You may wish to replay the journal like:\n\n"
 		ext2fs_mark_super_dirty(fs);
 		printf(_("Setting stripe width to %d\n"), stripe_width);
 	}
+
 	if (ext_mount_opts) {
 		strncpy((char *)(fs->super->s_mount_opts), ext_mount_opts,
 			sizeof(fs->super->s_mount_opts));
@@ -3322,6 +3323,16 @@ _("Warning: The journal is dirty. You may wish to replay the journal like:\n\n"
 		printf(_("Setting extended default mount options to '%s'\n"),
 		       ext_mount_opts);
 		free(ext_mount_opts);
+	}
+
+	/* Warn if file system needs recovery and it is opened for writing. */
+	if ((open_flag & EXT2_FLAG_RW) && !(mount_flags & EXT2_MF_MOUNTED) &&
+	    (sb->s_feature_compat & EXT3_FEATURE_COMPAT_HAS_JOURNAL) &&
+	    (sb->s_feature_incompat & EXT3_FEATURE_INCOMPAT_RECOVER)) {
+		fprintf(stderr,
+			_("Warning: needs_recovery flag is set. You may wish\n"
+			  "replay the journal then rerun this command, or any\n"
+			  "changes may be overwritten by journal recovery.\n"));
 	}
 
 	free(device_name);
