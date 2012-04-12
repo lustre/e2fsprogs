@@ -492,6 +492,9 @@ static void pass1d(e2fsck_t ctx, char *block_buf)
 			q = (struct dup_cluster *) dnode_get(m);
 			if (q->num_bad > 1)
 				file_ok = 0;
+			if (q->num_bad == 1 && (ctx->clone == E2F_CLONE_ZERO ||
+			    ctx->shared != E2F_SHARED_PRESERVE))
+				file_ok = 0;
 			if (check_if_fs_cluster(ctx, s->cluster)) {
 				file_ok = 0;
 				meta_data = 1;
@@ -547,13 +550,26 @@ static void pass1d(e2fsck_t ctx, char *block_buf)
 			fix_problem(ctx, PR_1D_DUP_BLOCKS_DEALT, &pctx);
 			continue;
 		}
-		if (fix_problem(ctx, PR_1D_CLONE_QUESTION, &pctx)) {
+		if (ctx->shared != E2F_SHARED_DELETE &&
+		    fix_problem(ctx, PR_1D_CLONE_QUESTION, &pctx)) {
 			pctx.errcode = clone_file(ctx, ino, p, block_buf);
-			if (pctx.errcode)
+			if (pctx.errcode) {
 				fix_problem(ctx, PR_1D_CLONE_ERROR, &pctx);
-			else
-				continue;
+				goto delete;
+			}
+			if (ctx->shared == E2F_SHARED_LPF &&
+			    fix_problem(ctx, PR_1D_DISCONNECT_QUESTION, &pctx)){
+				pctx.errcode = ext2fs_unlink(fs, p->dir,
+							     NULL, ino, 0);
+				if (pctx.errcode) {
+					fix_problem(ctx, PR_1D_DISCONNECT_ERROR,
+						    &pctx);
+					goto delete;
+				}
+			}
+			continue;
 		}
+delete:
 		if (fix_problem(ctx, PR_1D_DELETE_QUESTION, &pctx))
 			delete_file(ctx, ino, p, block_buf);
 		else
@@ -571,7 +587,8 @@ static void decrement_badcount(e2fsck_t ctx, blk64_t block,
 {
 	p->num_bad--;
 	if (p->num_bad <= 0 ||
-	    (p->num_bad == 1 && !check_if_fs_block(ctx, block))) {
+	    (p->num_bad == 1 && !check_if_fs_block(ctx, block) &&
+	    ctx->clone == E2F_CLONE_DUP)) {
 		if (check_if_fs_cluster(ctx, EXT2FS_B2C(ctx->fs, block)))
 			return;
 		ext2fs_unmark_block_bitmap2(ctx->block_dup_map, block);
@@ -732,8 +749,14 @@ static int clone_file_block(ext2_filsys fs,
 		}
 
 		p = (struct dup_cluster *) dnode_get(n);
-		if (!is_meta)
+		if (!is_meta) {
 			decrement_badcount(ctx, *block_nr, p);
+			if (ctx->clone == E2F_CLONE_ZERO && p->num_bad == 0) {
+				ext2fs_unmark_block_bitmap2(ctx->block_found_map,
+							    *block_nr);
+				ext2fs_block_alloc_stats(fs, *block_nr, -1);
+			}
+		}
 
 		cs->dup_cluster = c;
 
@@ -760,10 +783,15 @@ static int clone_file_block(ext2_filsys fs,
  		printf("Cloning block #%lld from %llu to %llu\n",
 		       blockcnt, *block_nr, new_block);
 #endif
-		retval = io_channel_read_blk64(fs->io, *block_nr, 1, cs->buf);
-		if (retval) {
-			cs->errcode = retval;
-			return BLOCK_ABORT;
+		if (ctx->clone == E2F_CLONE_ZERO) {
+			memset(cs->buf, 0, fs->blocksize);
+		} else {
+			retval = io_channel_read_blk64(fs->io, *block_nr, 1,
+						       cs->buf);
+			if (retval) {
+				cs->errcode = retval;
+				return BLOCK_ABORT;
+			}
 		}
 		retval = io_channel_write_blk64(fs->io, new_block, 1, cs->buf);
 		if (retval) {
