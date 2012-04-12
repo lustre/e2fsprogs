@@ -6,13 +6,20 @@
 Summary: Utilities for managing ext2/ext3/ext4 filesystems
 Name: e2fsprogs
 Version: 1.47.3
-Release: 0
-License: GPLv2
-Group: System Environment/Base
+Release: 0%{_vendor}
+License: GPLv2 and LGPLv2
 Source:  ftp://download.sourceforge.net/pub/sourceforge/e2fsprogs/e2fsprogs-%{version}.tar.gz
-Url: http://e2fsprogs.sourceforge.net/
-Prereq: /sbin/ldconfig
+Url: https://downloads.whamcloud.com/public/e2fsprogs/
 BuildRoot: %{_tmppath}/%{name}-root
+%if "%{_vendor}" == "suse"
+Group: System/Filesystems
+Provides: e2fsbn ext2fs libcom_err = %{version} ldiskfsprogs = %{version}
+Obsoletes: ext2fs libcom_err < %{version}
+%else
+Group: System Environment/Base
+Provides: e2fsprogs-libs = %{version} ldiskfsprogs = %{version}
+Obsoletes: e4fsprogs < %{version} e2fsprogs-libs < %{version}
+%endif
 
 %description
 The e2fsprogs package contains a number of utilities for creating,
@@ -36,7 +43,7 @@ fsck tool that are included here.
 Summary: Ext2 filesystem-specific static libraries and headers.
 Group: Development/Libraries
 Requires: e2fsprogs = %{version}
-Prereq: /sbin/install-info
+Provides: ldiskfsprogs-devel = %{version}-%{release}
 
 %description devel
 E2fsprogs-devel contains the libraries and header files needed to
@@ -62,7 +69,8 @@ SMP systems.
 %setup
 
 %build
-%configure --enable-elf-shlibs --enable-nls \
+%configure --enable-elf-shlibs --enable-nls --disable-defrag \
+	--enable-quota --disable-fuse2fs \
 	%{?extra_config_flags:%extra_config_flags}
 make
 make check
@@ -155,6 +163,9 @@ exit 0
 
 %{_mandir}/man5/e2fsck.conf.5*
 %{_mandir}/man5/mke2fs.conf.5*
+%{_mandir}/man5/ext2.5*
+%{_mandir}/man5/ext3.5*
+%{_mandir}/man5/ext4.5*
 
 %{_mandir}/man8/badblocks.8*
 %{_mandir}/man8/blkid.8*
