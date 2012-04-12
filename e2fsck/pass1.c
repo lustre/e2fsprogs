@@ -320,6 +320,13 @@ static void check_ea_in_inode(e2fsck_t ctx, struct problem_context *pctx)
 			goto fix;
 		}
 
+		/* Value size cannot be larger than EA space in inode */
+		if (entry->e_value_offs > storage_size ||
+		    entry->e_value_offs + entry->e_value_size > storage_size) {
+			problem = PR_1_INODE_EA_BAD_VALUE;
+			goto fix;
+		}
+
 		hash = ext2fs_ext_attr_hash_entry(entry,
 						  start + entry->e_value_offs);
 
