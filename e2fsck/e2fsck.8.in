@@ -198,6 +198,19 @@ separated, and may take an argument using the equals ('=') sign.  The
 following options are supported:
 .RS 1.2i
 .TP
+.BI clone= dup|zero
+Resolve files with shared blocks in pass 1D by giving each file a private
+copy of the blocks (dup);
+or replacing the shared blocks with private, zero-filled blocks (zero).
+The default is dup.
+.TP
+.BI shared= preserve|lost+found|delete
+Files with shared blocks discovered in pass 1D are cloned and then left
+in place (preserve);
+cloned and then disconnected from their parent directory,
+then reconnected to /lost+found in pass 3 (lost+found);
+or simply deleted (delete).  The default is preserve.
+.TP
 .BI ea_ver= extended_attribute_version
 Set the version of the extended attribute blocks which
 .B e2fsck
