@@ -19,7 +19,9 @@ struct fiemap_extent {
 	__u64 fe_length;   /* length in bytes for this extent */
 	__u64 fe_reserved64[2];
 	__u32 fe_flags;    /* FIEMAP_EXTENT_* flags for this extent */
-	__u32 fe_reserved[3];
+	__u32 fe_device;   /* device number (fs-specific if FIEMAP_EXTENT_NET)
+			    * low 16bits are used */
+	__u32 fe_reserved[2];
 };
 
 struct fiemap {
@@ -62,6 +64,7 @@ struct fiemap {
 #define FIEMAP_FLAG_SYNC	0x00000001 /* sync file data before map */
 #define FIEMAP_FLAG_XATTR	0x00000002 /* map extended attribute tree */
 #define FIEMAP_FLAG_CACHE	0x00000004 /* request caching of the extents */
+#define FIEMAP_FLAG_DEVICE_ORDER 0x40000000 /* return device ordered mapping */
 
 #define FIEMAP_FLAGS_COMPAT	(FIEMAP_FLAG_SYNC | FIEMAP_FLAG_XATTR)
 
@@ -89,5 +92,7 @@ struct fiemap {
 
 #define EXT4_FIEMAP_EXTENT_HOLE		0x08000000 /* Entry in extent status
 						      cache for a hole*/
+/* Network filesystem flags - use a high bit, don't conflict with upstream */
+#define FIEMAP_EXTENT_NET		0x80000000 /* Data stored remotely. */
 
 #endif /* _LINUX_FIEMAP_H */
