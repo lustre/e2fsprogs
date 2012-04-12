@@ -971,7 +971,6 @@ static struct e2fsck_problem problem_table[] = {
 	  N_("@i %i, end of extent exceeds allowed value\n\t(logical @b %c, physical @b %b, len %N)\n"),
 	  PROMPT_CLEAR, 0 },
 
-
 	/* Directory inode block <block> should be at block <otherblock> */
 	{ PR_1_COLLAPSE_DBLOCK,
 	  N_("@d @i %i @b %b should be at @b %c.  "),
@@ -986,6 +985,11 @@ static struct e2fsck_problem problem_table[] = {
 	{ PR_1_MISALIGNED_CLUSTER,
 	  N_("@i %i logical @b %b (physical @b %c) violates cluster allocation rules.\nWill fix in pass 1B.\n"),
 	  PROMPT_NONE, 0 },
+
+	/* Bad extended attribute value in inode */
+	{ PR_1_INODE_EA_BAD_VALUE,
+	  N_("@a in @i %i is corrupt (@n value)."),
+	  PROMPT_CLEAR, 0},
 
 	/* Pass 1b errors */
 

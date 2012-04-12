@@ -587,6 +587,9 @@ struct problem_context {
 /* Inode logical block is misaligned */
 #define PR_1_MISALIGNED_CLUSTER		0x010074
 
+/* Bad extended attribute value in inode */
+#define PR_1_INODE_EA_BAD_VALUE		0x010080
+
 /*
  * Pass 1b errors
  */
