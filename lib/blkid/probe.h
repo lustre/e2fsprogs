@@ -194,6 +194,16 @@ struct jfs_super_block {
 	unsigned char	js_loguuid[16];
 };
 
+#define UBERBLOCK_MAGIC         0x00bab10c              /* oo-ba-bloc!  */
+struct zfs_uberblock {
+	__u64		ub_magic;	/* UBERBLOCK_MAGIC		*/
+	__u64		ub_version;	/* ZFS_VERSION			*/
+	__u64		ub_txg;		/* txg of last sync		*/
+	__u64		ub_guid_sum;	/* sum of all vdev guids	*/
+	__u64		ub_timestamp;	/* UTC time of last sync	*/
+	char		ub_rootbp;	/* MOS objset_phys_t		*/
+};
+
 struct romfs_super_block {
 	unsigned char	ros_magic[8];
 	__u32		ros_dummy1[2];
