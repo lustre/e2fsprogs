@@ -29,7 +29,7 @@ cp -sR `pwd`/$currdir $tmpdir/$builddir || exit 1
 # Remove any build files from the temporary tarball directory
 [ -f $tmpdir/$builddir/Makefile ] && make -C $tmpdir/$builddir distclean
 
-EXCLUDE="--exclude .hg* --exclude .pc*"
+EXCLUDE="--exclude .hg* --exclude .pc* --exclude .git*"
 (cd $tmpdir && tar czfh ${builddir}.tar.gz $EXCLUDE $builddir)
 
 [ "`rpmbuild --version 2> /dev/null`" ] && RPM=rpmbuild || RPM=rpm
