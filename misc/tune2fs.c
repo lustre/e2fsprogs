@@ -2273,6 +2273,7 @@ retry_open:
 		ext2fs_mark_super_dirty(fs);
 		printf(_("Setting stripe width to %d\n"), stripe_width);
 	}
+
 	if (ext_mount_opts) {
 		strncpy((char *)(fs->super->s_mount_opts), ext_mount_opts,
 			sizeof(fs->super->s_mount_opts));
@@ -2282,6 +2283,17 @@ retry_open:
 		       ext_mount_opts);
 		free(ext_mount_opts);
 	}
+
+	/* Warn if file system needs recovery and it is opened for writing. */
+	if ((open_flag & EXT2_FLAG_RW) && !(mount_flags & EXT2_MF_MOUNTED) &&
+	    (sb->s_feature_compat & EXT3_FEATURE_COMPAT_HAS_JOURNAL) &&
+	    (sb->s_feature_incompat & EXT3_FEATURE_INCOMPAT_RECOVER)) {
+		fprintf(stderr,
+			_("Warning: needs_recovery flag is set. You may wish\n"
+			  "replay the journal then rerun this command, or any\n"
+			  "changes may be overwritten by journal recovery.\n"));
+	}
+
 	free(device_name);
 	remove_error_table(&et_ext2_error_table);
 
