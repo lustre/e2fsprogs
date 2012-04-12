@@ -565,6 +565,10 @@ struct problem_context {
 #define PR_1_EXTENT_INDEX_START_INVALID	0x01006D
 
 #define PR_1_EXTENT_END_OUT_OF_BOUNDS	0x01006E
+
+/* Bad extended attribute value in inode */
+#define PR_1_INODE_EA_BAD_VALUE		0x010070
+
 /*
  * Pass 1b errors
  */
