@@ -8,7 +8,7 @@ filefrag \- report on file fragmentation
 .BI \-b blocksize
 ]
 [
-.B \-BeksvxX
+.B \-BeklsvxX
 ]
 [
 .I files...
@@ -45,6 +45,9 @@ Print output in extent format, even for block-mapped files.
 .TP
 .B \-k
 Use 1024\-byte blocksize for output (identical to '\-b 1024').
+.TP
+.B \-l
+Extents are displayed in device-logical offset order.
 .TP
 .B \-s
 Sync the file before requesting the mapping.
