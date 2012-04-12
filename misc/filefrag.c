@@ -48,14 +48,16 @@ int verbose = 0;
 int blocksize;		/* Use specified blocksize (default 1kB) */
 int sync_file = 0;	/* fsync file before getting the mapping */
 int xattr_map = 0;	/* get xattr mapping */
-int force_bmap;	/* force use of FIBMAP instead of FIEMAP */
+int force_bmap;		/* force use of FIBMAP instead of FIEMAP */
 int force_extent;	/* print output in extent format always */
+int device_offset;	/* extents report device-relative offsets */
 int logical_width = 8;
 int physical_width = 10;
 const char *ext_fmt = "%4d: %*llu..%*llu: %*llu..%*llu: %6llu: %s\n";
 const char *hex_fmt = "%4d: %*llx..%*llx: %*llx..%*llx: %6llx: %s\n";
 
-#define FILEFRAG_FIEMAP_FLAGS_COMPAT (FIEMAP_FLAG_SYNC | FIEMAP_FLAG_XATTR)
+#define FILEFRAG_FIEMAP_FLAGS_COMPAT (FIEMAP_FLAG_SYNC | FIEMAP_FLAG_XATTR |\
+				      FIEMAP_FLAG_DEVICE_ORDER)
 
 #define FIBMAP		_IO(0x00, 1)	/* bmap access */
 #define FIGETBSZ	_IO(0x00, 2)	/* get the block size used for bmap */
@@ -114,10 +116,10 @@ static void print_extent_header(void)
 {
 	printf(" ext: %*s %*s length: %*s flags:\n",
 	       logical_width * 2 + 3,
-	       "logical_offset:",
+	       device_offset ? "device_logical:" : "logical_offset:",
 	       physical_width * 2 + 3, "physical_offset:",
-	       physical_width + 1,
-	       "expected:");
+	       device_offset ? 5 : physical_width + 1,
+	       device_offset ? " dev:" : "expected:");
 }
 
 static void print_flag(__u32 *flags, __u32 mask, char *buf, const char *name)
@@ -153,11 +155,11 @@ static void print_extent_info(struct fiemap_extent *fm_extent, int cur_ex,
 		physical_blk = fm_extent->fe_physical >> blk_shift;
 	}
 
-	if (expected)
-		sprintf(flags, ext_fmt == hex_fmt ? "%*llx: " : "%*llu: ",
+	if (device_offset)
+		sprintf(flags, "%04x: ", fm_extent->fe_device);
+	else if (expected)
+		sprintf(flags, ext_fmt == hex_fmt ? "%*llx:" : "%*llu: ",
 			physical_width, expected >> blk_shift);
-	else
-		sprintf(flags, "%.*s  ", physical_width, "                   ");
 
 	fe_flags = fm_extent->fe_flags;
 	print_flag(&fe_flags, FIEMAP_EXTENT_LAST, flags, "last,");
@@ -171,6 +173,8 @@ static void print_extent_info(struct fiemap_extent *fm_extent, int cur_ex,
 	print_flag(&fe_flags, FIEMAP_EXTENT_UNWRITTEN, flags, "unwritten,");
 	print_flag(&fe_flags, FIEMAP_EXTENT_MERGED, flags, "merged,");
 	print_flag(&fe_flags, FIEMAP_EXTENT_SHARED, flags, "shared,");
+	print_flag(&fe_flags, FIEMAP_EXTENT_NET, flags, "net,");
+
 	/* print any unknown flags as hex values */
 	for (mask = 1; fe_flags != 0 && mask != 0; mask <<= 1) {
 		char hex[6];
@@ -208,6 +212,7 @@ static int filefrag_fiemap(int fd, int blk_shift, int *num_extents,
 	unsigned int i;
 	int fiemap_header_printed = 0;
 	int tot_extents = 0, n = 0;
+	int previous_device = 0;
 	int last = 0;
 	int rc;
 
@@ -219,6 +224,12 @@ static int filefrag_fiemap(int fd, int blk_shift, int *num_extents,
 	if (xattr_map)
 		flags |= FIEMAP_FLAG_XATTR;
 
+	if (device_offset) {
+		flags |= FIEMAP_FLAG_DEVICE_ORDER;
+		memset(fm_ext, 0, sizeof(struct fiemap_extent));
+	}
+
+retry_wo_device_order:
 	do {
 		fiemap->fm_length = ~0ULL;
 		fiemap->fm_flags = flags;
@@ -233,6 +244,10 @@ static int filefrag_fiemap(int fd, int blk_shift, int *num_extents,
 						"flags %x\n",
 				       fiemap->fm_flags);
 				fiemap_incompat_printed = 1;
+			} else if (rc == EBADR && (fiemap->fm_flags &
+						   FIEMAP_FLAG_DEVICE_ORDER)) {
+				flags &= ~FIEMAP_FLAG_DEVICE_ORDER;
+				goto retry_wo_device_order;
 			}
 			return rc;
 		}
@@ -247,6 +262,9 @@ static int filefrag_fiemap(int fd, int blk_shift, int *num_extents,
 		}
 
 		for (i = 0; i < fiemap->fm_mapped_extents; i++) {
+			if (previous_device != fm_ext[i].fe_device)
+				previous_device = fm_ext[i].fe_device;
+
 			if (fm_ext[i].fe_logical != 0 &&
 			    fm_ext[i].fe_physical != expected) {
 				tot_extents++;
@@ -265,8 +283,20 @@ static int filefrag_fiemap(int fd, int blk_shift, int *num_extents,
 			n++;
 		}
 
-		fiemap->fm_start = (fm_ext[i - 1].fe_logical +
-				    fm_ext[i - 1].fe_length);
+		/* For DEVICE_ORDER mappings, if EXTENT_LAST not yet found then
+		 * fm_start needs to be the same as it was for earlier ioctl.
+		 * The first extent is used to pass the end offset and device
+		 * of the last FIEMAP call.  Otherwise, we ask for extents
+		 * starting from where the last mapping ended. */
+		if (flags & FIEMAP_FLAG_DEVICE_ORDER) {
+			fm_ext[0].fe_logical =	fm_ext[i - 1].fe_logical +
+						fm_ext[i - 1].fe_length;
+			fm_ext[0].fe_device =	fm_ext[i - 1].fe_device;
+			fiemap->fm_start =	0;
+		} else {
+			fiemap->fm_start =	fm_ext[i - 1].fe_logical +
+						fm_ext[i - 1].fe_length;
+		}
 	} while (last == 0);
 
 	*num_extents = tot_extents;
@@ -289,6 +319,7 @@ static int filefrag_fibmap(int fd, int blk_shift, int *num_extents,
 
 	if (force_extent) {
 		memset(&fm_ext, 0, sizeof(fm_ext));
+		fm_ext.fe_device = st->st_dev;
 		fm_ext.fe_flags = FIEMAP_EXTENT_MERGED;
 	}
 
@@ -409,6 +440,13 @@ static int frag_report(const char *filename)
 			is_ext2 = 1;
 	}
 
+	/* Check if filesystem is Lustre.  Always print in extent format
+	 * with 1kB blocks, using the device-relative logical offsets. */
+	if (fsinfo.f_type == LUSTRE_SUPER_MAGIC) {
+		device_offset = 1;
+		blocksize = blocksize ?: 1024;
+	}
+
 	if (is_ext2) {
 		long cylgroups = div_ceil(fsinfo.f_blocks, blksize * 8);
 
@@ -496,10 +534,11 @@ int main(int argc, char**argv)
 	char **cpp;
 	int rc = 0, c;
 
-	while ((c = getopt(argc, argv, "Bb::eksvxX")) != EOF) {
+	while ((c = getopt(argc, argv, "Bb::eklsvxX")) != EOF) {
 		switch (c) {
 		case 'B':
 			force_bmap++;
+			force_extent = 0;
 			break;
 		case 'b':
 			if (optarg) {
@@ -538,6 +577,9 @@ int main(int argc, char**argv)
 			break;
 		case 'k':
 			blocksize = 1024;
+			break;
+		case 'l':
+			device_offset++;
 			break;
 		case 's':
 			sync_file++;
