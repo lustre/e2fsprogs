@@ -558,6 +558,10 @@ struct problem_context {
 /* Extent has zero length */
 #define PR_1_EXTENT_LENGTH_ZERO		0x010066
 
+/* Bad extended attribute value in inode */
+#define PR_1_INODE_EA_BAD_VALUE		0x010070
+
+
 /*
  * Pass 1b errors
  */
