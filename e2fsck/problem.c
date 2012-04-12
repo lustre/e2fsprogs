@@ -946,6 +946,11 @@ static struct e2fsck_problem problem_table[] = {
 	  N_("@i %i has zero length extent\n\t(@n logical @b %c, physical @b %b)\n"),
 	  PROMPT_CLEAR, 0 },
 
+	/* Bad extended attribute value in inode */
+	{ PR_1_INODE_EA_BAD_VALUE,
+	  N_("@a in @i %i is corrupt (@n value)."),
+	  PROMPT_CLEAR, 0},
+
 	/* Pass 1b errors */
 
 	/* Pass 1B: Rescan for duplicate/bad blocks */
