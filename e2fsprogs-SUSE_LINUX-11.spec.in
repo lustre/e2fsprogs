@@ -173,6 +173,7 @@ autoreconf --force --install
   --disable-libuuid \
   --disable-uuidd \
   --disable-fsck \
+  @WITH_LUSTRE@ @ENABLE_LFSCK@ \
   %{?extra_config_flags:%extra_config_flags} CFLAGS="$RPM_OPT_FLAGS"
 make V=1
 
@@ -224,6 +225,7 @@ rm -rf $RPM_BUILD_ROOT
 /sbin/fsck.ext2
 /sbin/fsck.ext3
 /sbin/fsck.ext4
+@LFSCK_CMT@/usr/sbin/lfsck
 /sbin/mke2fs
 /sbin/mkfs.ext2
 /sbin/mkfs.ext3
