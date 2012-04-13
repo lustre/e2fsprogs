@@ -52,6 +52,7 @@
 #ifdef HAVE_SYS_SYSMACROS_H
 #include <sys/sysmacros.h>
 #endif
+#include <dirent.h>
 
 #include "ext2_fs.h"
 #include "ext2fs.h"
@@ -336,6 +337,196 @@ leave:
 	return ret;
 }
 
+static int check_lustre_zfs(char *mnt_device, const char *real_devname)
+{
+	char *real_mnt_device, *buf, *ptr;
+	FILE *fp;
+	int rc = 0;
+
+	real_mnt_device = malloc(PATH_MAX);
+	if (real_mnt_device == NULL) {
+		fprintf(stderr, "Cannot allocate memory to store path\n");
+		return 1;
+	}
+
+	buf = malloc(PATH_MAX);
+	if (buf == NULL) {
+		fprintf(stderr, "Cannot allocate memory to store command\n");
+		free(real_mnt_device);
+		return 1;
+	}
+
+	/* Get the pool name from mnt_device */
+	ptr = strchr(mnt_device, '/');
+	if (ptr)
+		*ptr = '\0';
+
+	memset(buf, 0, PATH_MAX);
+	sprintf(buf, "zpool list -Hv %s", mnt_device);
+
+	fp = popen(buf, "r");
+	if (fp) {
+		int line = 0;
+		while (!feof(fp)) {
+			memset(buf, 0, PATH_MAX);
+			fscanf(fp, "%s%*[^\n]", buf);
+			/* skip the first line */
+			if (line++ == 0)
+				continue;
+			/* skip empty line */
+			if (strlen(buf) == 0)
+				continue;
+
+			if (realpath(buf, real_mnt_device) == NULL)
+				continue;
+			if (strcmp(real_devname, real_mnt_device) == 0) {
+				fprintf(stderr, "device %s mounted by Lustre\n",
+					real_devname);
+				rc = -1;
+				break;
+			}
+		}
+		pclose(fp);
+	}
+
+	return rc;
+}
+
+static int check_lustre_ldiskfs(const char *mnt_device,
+				const char *real_devname)
+{
+	char *real_mnt_device;
+
+	real_mnt_device = malloc(PATH_MAX);
+	if (real_mnt_device == NULL) {
+		fprintf(stderr, "Cannot allocate memory to store path\n");
+		return 1;
+	}
+
+	memset(real_mnt_device, 0, PATH_MAX);
+	if (realpath(mnt_device, real_mnt_device) == NULL) {
+		fprintf(stderr, "Cannot resolve mntdev %s\n", mnt_device);
+		free(real_mnt_device);
+		return 1;
+	}
+
+	if (strcmp(real_devname, real_mnt_device) == 0) {
+		fprintf(stderr, "device %s mounted by lustre\n", real_devname);
+		free(real_mnt_device);
+		return -1;
+	}
+
+	free(real_mnt_device);
+	return 0;
+}
+
+static int check_lustre_proc_vals(const char *procname,const char *real_devname)
+{
+	struct dirent *direntp;
+	DIR *dirp;
+	int rc = 0;
+	char  *mnt_device, *proc_val;
+
+	mnt_device = malloc(PATH_MAX);
+	if (mnt_device == NULL) {
+		fprintf(stderr, "Cannot allocate memory to store device\n");
+		return 1;
+	}
+	proc_val = malloc(PATH_MAX);
+	if (proc_val == NULL) {
+		fprintf(stderr, "Cannot allocate memory to store proc\n");
+		free(mnt_device);
+		return 1;
+	}
+
+	dirp = opendir(procname);
+	if (dirp) {
+		do {
+			int fd, numr;
+			char *ptr;
+
+			direntp = readdir(dirp);
+			if (direntp == NULL)
+				break;
+			if ((strncmp(direntp->d_name, ".", 1) == 0) ||
+			    (strncmp(direntp->d_name, "..", 2) == 0)) {
+				continue;
+			}
+
+			memset(proc_val, 0, PATH_MAX);
+			snprintf(proc_val, PATH_MAX, "%s/%s/mntdev", procname,
+				 direntp->d_name);
+			fd = open(proc_val, O_RDONLY);
+			if (fd < 0)  {
+				if (errno == ENOENT || errno == ENOTDIR)
+					continue;
+				fprintf(stderr, "Cannot open %s: %s\n",
+					proc_val, strerror(errno));
+				rc = 1;
+				break;
+			}
+
+			memset(mnt_device, 0, PATH_MAX);
+			numr = read(fd, mnt_device, PATH_MAX);
+			if (numr < 0) {
+				fprintf(stderr, "Failure to get mntdev info\n");
+				rc = 1;
+				close(fd);
+				break;
+			}
+			close(fd);
+
+			ptr = strchr(mnt_device, '\n');
+			if (ptr)
+				*ptr = '\0';
+
+			if (strstr(procname, "osd-zfs") != NULL)
+				rc = check_lustre_zfs(mnt_device, real_devname);
+			else
+				rc = check_lustre_ldiskfs(mnt_device,
+							  real_devname);
+
+		} while (direntp != NULL && rc == 0);
+
+		closedir(dirp);
+	}
+
+	free(proc_val);
+	free(mnt_device);
+
+	return rc;
+}
+
+static errcode_t check_if_lustre_mounted(const char *device, int *mount_flags)
+{
+	char *real_device;
+	int rc = 0;
+
+	real_device = malloc(PATH_MAX);
+	if (real_device == NULL) {
+		fprintf(stderr, "Cannot allocate memory to store path\n");
+		return EXT2_ET_NO_MEMORY;
+	}
+
+	if (realpath(device, real_device) == NULL) {
+		fprintf(stderr, "Cannot resolve path %s\n", device);
+		rc = EXT2_ET_BAD_DEVICE_NAME;
+		goto out_free;
+	}
+
+	rc = check_lustre_proc_vals("/proc/fs/lustre/osd-ldiskfs", real_device);
+	if (!rc)
+		rc = check_lustre_proc_vals("/proc/fs/lustre/osd-zfs",
+					    real_device);
+	if (rc)
+		*mount_flags |= EXT2_MF_MOUNTED;
+
+out_free:
+	free(real_device);
+
+	return rc;
+}
+
 
 /*
  * ext2fs_check_mount_point() fills determines if the device is
@@ -414,6 +605,8 @@ errcode_t ext2fs_check_mount_point(const char *device, int *mount_flags,
 
 	if (busy)
 		*mount_flags |= EXT2_MF_BUSY;
+
+	retval = check_if_lustre_mounted(device, mount_flags);
 
 	return 0;
 }
