@@ -190,6 +190,7 @@ struct resource_track {
 #define E2F_FLAG_EXITING	0x1000 /* E2fsck exiting due to errors */
 #define E2F_FLAG_TIME_INSANE	0x2000 /* Time is insane */
 #define E2F_FLAG_PROBLEMS_FIXED	0x4000 /* At least one problem was fixed */
+#define E2F_FLAG_EXPAND_EISIZE	0x8000 /* Expand the inodes (i_extra_isize) */
 
 #define E2F_RESET_FLAGS (E2F_FLAG_TIME_INSANE | E2F_FLAG_PROBLEMS_FIXED)
 
@@ -381,6 +382,15 @@ struct e2fsck_struct {
 	enum clone_opt clone;
 	profile_t	profile;
 	int blocks_per_page;
+
+	/* Expand large inodes to atleast these many bytes */
+	int want_extra_isize;
+	/* minimum i_extra_isize found in used inodes. Should not be lesser
+	 * than s_min_extra_isize.
+	 */
+	__u32 min_extra_isize;
+	int fs_unexpanded_inodes;
+	ext2fs_inode_bitmap expand_eisize_map;
 
 	/* Reserve blocks for root and l+f re-creation */
 	blk64_t root_repair_block, lnf_repair_block;

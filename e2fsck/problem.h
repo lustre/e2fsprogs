@@ -255,6 +255,15 @@ struct problem_context {
 /* The first_meta_bg is too big */
 #define PR_0_FIRST_META_BG_TOO_BIG		0x000049
 
+/* Invalid s_min_extra_isize */
+#define PR_0_MIN_EXTRA_ISIZE_INVALID		0x000050
+
+/* Invalid s_want_extra_isize */
+#define PR_0_WANT_EXTRA_ISIZE_INVALID		0x000051
+
+/* Clear EXT4_FEATURE_RO_COMPAT_EXTRA_ISIZE flag */
+#define PR_0_CLEAR_EXTRA_ISIZE			0x000052
+
 /*
  * Pass 1 errors
  */
@@ -589,6 +598,26 @@ struct problem_context {
 
 /* Bad extended attribute value in inode */
 #define PR_1_INODE_EA_BAD_VALUE		0x010080
+
+/* Warning for user that all inodes need to be expanded atleast by
+ * s_min_extra_isize
+ */
+#define PR_1_EXPAND_EISIZE_WARNING	0x010084
+
+/* Expand the inode */
+#define PR_1_EXPAND_EISIZE		0x010085
+
+/* Delete an EA so that EXTRA_ISIZE may be enabled */
+#define PR_1_EISIZE_DELETE_EA		0x010086
+
+/* An EA needs to be deleted by e2fsck is being run with -p or -y */
+#define PR_1_EA_BLK_NOSPC		0x010087
+
+/* Disable EXTRA_ISIZE feature as inode cannot be expanded
+ * without deletion of an EA
+ */
+#define PR_1_CLEAR_EXTRA_ISIZE		0x010088
+
 
 /*
  * Pass 1b errors
@@ -1058,6 +1087,9 @@ struct problem_context {
 
 /* Inode in use but group is marked INODE_UNINIT */
 #define PR_5_INODE_UNINIT		0x050019
+
+/* Expand the inodes which need a new EA block */
+#define PR_5_EXPAND_EISIZE		0x05001a
 
 /*
  * Post-Pass 5 errors
