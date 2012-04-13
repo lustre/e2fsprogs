@@ -37,9 +37,14 @@ struct ext2_ext_attr_entry {
 #endif
 };
 
+struct ext2_xattr_ibody_header {
+	__u32				h_magic; /* EXT2_EXT_ATTR_MAGIC */
+	struct ext2_ext_attr_entry	h_first_entry[0];
+};
+
 #define BHDR(block) ((struct ext2_ext_attr_header *)block)
-#define IHDR(inode) ((__u32 *)((char *)inode + EXT2_GOOD_OLD_INODE_SIZE + \
-				(inode)->i_extra_isize))
+#define IHDR(inode) ((struct ext2_xattr_ibody_header *)((char *)inode + \
+		    EXT2_GOOD_OLD_INODE_SIZE + (inode)->i_extra_isize))
 #define ENTRY(ptr) ((struct ext2_ext_attr_entry *)(ptr))
 
 /* Name indexes */
