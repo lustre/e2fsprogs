@@ -759,6 +759,18 @@ static void parse_extended_opts(e2fsck_t ctx, const char *opts)
 				extended_usage++;
 				continue;
 			}
+		/* -E inode_badness_threshold=<value> */
+		} else if (strcmp(token, "inode_badness_threshold") == 0) {
+			if (!arg) {
+				extended_usage++;
+				continue;
+			}
+			ctx->inode_badness_threshold = strtoul(arg, &p, 0);
+			if (*p != '\0' || ctx->inode_badness_threshold > 200) {
+				fprintf(stderr, _("Invalid badness value.\n"));
+				extended_usage++;
+				continue;
+			}
 		} else if (strcmp(token, "journal_only") == 0) {
 			if (arg) {
 				extended_usage++;
@@ -798,6 +810,7 @@ static void parse_extended_opts(e2fsck_t ctx, const char *opts)
 		fputs(("\tshared=<preserve|lost+found|delete>\n"), stderr);
 		fputs(("\tclone=<dup|zero>\n"), stderr);
 		fputs(("\texpand_extra_isize\n"), stderr);
+		fputs(("\tinode_badness_threhold=(value)\n"), stderr);
 		fputc('\n', stderr);
 		exit(1);
 	}
@@ -864,6 +877,8 @@ static errcode_t PRS(int argc, char *argv[], e2fsck_t *ret_ctx)
 	profile_init(config_fn, &ctx->profile);
 
 	initialize_profile_options(ctx);
+
+	ctx->inode_badness_threshold = BADNESS_THRESHOLD;
 
 	while ((c = getopt (argc, argv, "panyrcC:B:dE:fvtFVM:b:I:j:P:l:L:N:SsDk")) != EOF)
 		switch (c) {
