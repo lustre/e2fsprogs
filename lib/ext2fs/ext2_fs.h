@@ -735,7 +735,8 @@ struct ext2_super_block {
 #define EXT2_FEATURE_COMPAT_SUPP	0
 #define EXT2_FEATURE_INCOMPAT_SUPP    (EXT2_FEATURE_INCOMPAT_FILETYPE| \
 				       EXT4_FEATURE_INCOMPAT_MMP| \
-				       EXT4_FEATURE_INCOMPAT_EA_INODE)
+				       EXT4_FEATURE_INCOMPAT_EA_INODE| \
+				       EXT4_FEATURE_INCOMPAT_DIRDATA)
 #define EXT2_FEATURE_RO_COMPAT_SUPP	(EXT2_FEATURE_RO_COMPAT_SPARSE_SUPER| \
 					 EXT2_FEATURE_RO_COMPAT_LARGE_FILE| \
 					 EXT4_FEATURE_RO_COMPAT_DIR_NLINK| \
@@ -805,6 +806,7 @@ struct ext2_dir_entry_2 {
 #define EXT2_FT_SYMLINK		7
 
 #define EXT2_FT_MAX		8
+#define EXT2_FT_MASK		0x0f
 
 /*
  * EXT2_DIR_PAD defines the directory entries boundaries
@@ -813,8 +815,14 @@ struct ext2_dir_entry_2 {
  */
 #define EXT2_DIR_PAD			4
 #define EXT2_DIR_ROUND			(EXT2_DIR_PAD - 1)
-#define EXT2_DIR_REC_LEN(name_len)	(((name_len) + 8 + EXT2_DIR_ROUND) & \
+#define __EXT2_DIR_REC_LEN(name_len)	(((name_len) + 8 + EXT2_DIR_ROUND) &  \
 					 ~EXT2_DIR_ROUND)
+
+#define EXT2_DIR_REC_LEN(de)		(__EXT2_DIR_REC_LEN((de)->name_len +  \
+					 ext2_get_dirent_size(de)))
+/* lu_fid size and NUL char */
+#define EXT2_DIRENT_LUFID_SIZE		(17 + 1)
+#define EXT2_DIRENT_LUFID		0x10
 
 /*
  * This structure is used for multiple mount protection. It is written
@@ -864,5 +872,8 @@ struct mmp_struct {
  * Minimum interval for MMP checking in seconds.
  */
 #define EXT4_MMP_MIN_CHECK_INTERVAL     5
+
+int ext2_get_dirent_dirdata_size(struct ext2_dir_entry_2 *de, char dirdata_flags);
+int ext2_get_dirent_size(struct ext2_dir_entry_2 *de);
 
 #endif	/* _LINUX_EXT2_FS_H */
