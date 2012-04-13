@@ -333,6 +333,20 @@ may not be specified at the same time as the
 or
 .B \-p
 options.
+@LFSCK_MAN@.TP
+@LFSCK_MAN@.BI \-\-mdsdb " mds_database_filename"
+@LFSCK_MAN@Specify which file to use for an MDS database on a Lustre filesystem.
+@LFSCK_MAN@The mdsdb also needs to be specified when creating an OST database with
+@LFSCK_MAN@.B \-\-ostdb
+@LFSCK_MAN@but the mdsdb file used in a read-only manner.
+@LFSCK_MAN@.TP
+@LFSCK_MAN@.BI \-\-ostdb " ostN_database_filename"
+@LFSCK_MAN@Specify which file to use for an OST database on a Lustre filesystem.
+@LFSCK_MAN@A separate database file should be specified for each OST device in
+@LFSCK_MAN@the filesystem.  For convenience a stub
+@LFSCK_MAN@.BR mdsdb .hdr
+@LFSCK_MAN@file is generated for use by the OST e2fsck to avoid the need to
+@LFSCK_MAN@wait for the MDS e2fsck to finish or copy the full mdsdb to the OSTs.
 .SH EXIT CODE
 The exit code returned by
 .B e2fsck
