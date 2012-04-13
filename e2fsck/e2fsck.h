@@ -11,6 +11,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <stddef.h>
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
@@ -237,6 +238,21 @@ enum clone_opt {
 	E2F_CLONE_ZERO
 };
 
+#define EXT4_FITS_IN_INODE(ext4_inode, einode, field)	\
+	((offsetof(typeof(*ext4_inode), field) +	\
+	  sizeof(ext4_inode->field)) <=			\
+	   (EXT2_GOOD_OLD_INODE_SIZE +			\
+	    (einode)->i_extra_isize))			\
+
+#define EXT4_XTIME_FUTURE(ctx, sb, xtime, margin)	\
+	(!((ctx)->flags & E2F_FLAG_TIME_INSANE) &&	\
+	 (xtime) > (ctx)->now + (margin))
+#define EXT4_XTIME_ANCIENT(ctx, sb, xtime, margin)	\
+	((sb)->s_mkfs_time > (margin) && (xtime) < (sb)->s_mkfs_time - (margin))
+
+#define BADNESS_THRESHOLD	12
+#define BADNESS_MAX		0x7fff
+
 /*
  * Define the extended attribute refcount structure
  */
@@ -331,7 +347,6 @@ struct e2fsck_struct {
 
 	/* The following inode bitmaps are separately used in thread_ctx Pass1*/
 	ext2fs_inode_bitmap inode_used_map; /* Inodes which are in use */
-	ext2fs_inode_bitmap inode_bad_map; /* Inodes which are bad somehow */
 	ext2fs_inode_bitmap inode_dir_map; /* Inodes which are directories */
 	ext2fs_inode_bitmap inode_bb_map; /* Inodes which are in bad blocks */
 	ext2fs_inode_bitmap inode_imagic_map; /* AFS inodes */
@@ -349,6 +364,8 @@ struct e2fsck_struct {
 	 */
 	ext2_icount_t	inode_count;
 	ext2_icount_t inode_link_info;
+	ext2_icount_t inode_badness;
+	unsigned int inode_badness_threshold;
 
 	ext2_refcount_t	refcount;
 	ext2_refcount_t refcount_extra;
@@ -708,6 +725,14 @@ extern int e2fsck_pass1_check_symlink(ext2_filsys fs, ext2_ino_t ino,
 extern void e2fsck_clear_inode(e2fsck_t ctx, ext2_ino_t ino,
 			       struct ext2_inode *inode, int restart_flag,
 			       const char *source);
+#define e2fsck_mark_inode_bad(ctx, pctx, code) \
+	e2fsck_mark_inode_bad_loc(ctx, pctx, code, 1, __func__, __LINE__)
+#define e2fsck_mark_inode_badder(ctx, pctx, code) \
+	e2fsck_mark_inode_bad_loc(ctx, pctx, code, 2, __func__, __LINE__)
+extern void e2fsck_mark_inode_bad_loc(e2fsck_t ctx,
+				struct problem_context *pctx, __u32 code,
+				int count, const char *func, const int line);
+extern int e2fsck_fix_bad_inode(e2fsck_t ctx, struct problem_context *pctx);
 extern void e2fsck_intercept_block_allocations(e2fsck_t ctx);
 
 /* pass2.c */

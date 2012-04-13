@@ -469,7 +469,7 @@ unlink:
 		pctx.errcode = retval;
 		fix_problem(ctx, PR_3_ERR_FIND_LPF, &pctx);
 	}
-	if (!fix_problem(ctx, PR_3_NO_LF_DIR, 0))
+	if (!fix_problem(ctx, PR_3_NO_LF_DIR, &pctx))
 		return 0;
 
 	/*

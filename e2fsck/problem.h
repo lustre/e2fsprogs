@@ -694,6 +694,9 @@ struct problem_context {
 /* Inode has illegal EA value inode */
 #define PR_1_ATTR_VALUE_EA_INODE		0x010083
 
+/* Inode has bad timestamp */
+#define PR_1_INODE_BAD_TIME			0x010084
+
 /* Parent inode has invalid EA entry. EA inode does not have
  * EXT4_EA_INODE_FL flag. Delete EA entry? */
 #define PR_1_ATTR_NO_EA_INODE_FL		0x010085
@@ -744,6 +747,9 @@ struct problem_context {
  */
 #define PR_1_CLEAR_EXTRA_ISIZE			0x010093
 
+/* invalid inode creation time */
+#define PR_1_CRTIME_BAD				0x010094
+
 /* Failed to goto block group */
 #define PR_1_SCAN_GOTO				0x0100A0
 
@@ -778,14 +784,17 @@ struct problem_context {
 /* Duplicate/bad block range in inode */
 #define PR_1B_DUP_RANGE		0x011008
 
+/* Inode is badly corrupt (badness value = ) */
+#define PR_1B_INODE_TOOBAD	0x011009
+
 /* Pass 1C: Scan directories for inodes with dup blocks. */
 #define PR_1C_PASS_HEADER	0x012000
 
 
-/* Pass 1D: Reconciling duplicate blocks */
+/* Pass 1D: Reconciling multiply-claimed blocks */
 #define PR_1D_PASS_HEADER	0x013000
 
-/* File has duplicate blocks */
+/* File has multiply-claimed blocks */
 #define PR_1D_DUP_FILE		0x013001
 
 /* List of files sharing duplicate blocks */
@@ -1081,6 +1090,9 @@ struct problem_context {
 /* Non-unique filename found, but can't rename */
 #define PR_2_NON_UNIQUE_FILE_NO_RENAME	0x020054
 
+/* Inode is badly corrupt (badness value = ) */
+#define PR_2_INODE_TOOBAD		0x020055
+
 /*
  * Pass 3 errors
  */
@@ -1340,7 +1352,14 @@ struct problem_context {
 /*
  * Function declarations
  */
-int fix_problem(e2fsck_t ctx, problem_t code, struct problem_context *pctx);
+#define fix_problem(ctx, code, pctx)			\
+	fix_problem_bad(ctx, code, pctx, 1)
+#define fix_problem_notbad(ctx, code, pctx)		\
+	fix_problem_bad(ctx, code, pctx, 0)
+#define fix_problem_bad(ctx, code, pctx, badness)	\
+	fix_problem_loc(ctx, code, pctx, badness, __func__, __LINE__)
+int fix_problem_loc(e2fsck_t ctx, problem_t code, struct problem_context *pctx,
+		    int badness, const char *func, const int line);
 int end_problem_latch(e2fsck_t ctx, int mask);
 int set_latch_flags(int mask, int setflags, int clearflags);
 int get_latch_flags(int mask, int *value);

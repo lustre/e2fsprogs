@@ -1,0 +1,125 @@
+Pass 1: Checking inodes, blocks, and sizes
+check_inode_extra_space: increase inode 20 badness 0 to 2 for 10094
+e2fsck_pass1_run: increase inode 20 badness 2 to 4 for 10084
+check_blocks: increase inode 20 badness 4 to 5 for 1000c
+Inode 20, i_size is 58, should be 12288.  Fix? yes
+
+check_blocks: increase inode 20 badness 5 to 6 for 1000d
+Inode 20, i_blocks is 2, should be 24.  Fix? yes
+
+check_blocks: increase inode 25 badness 0 to 1 for 1000c
+Inode 25, i_size is 58, should be 2048.  Fix? yes
+
+check_blocks: increase inode 25 badness 1 to 2 for 1000d
+Inode 25, i_blocks is 2, should be 4.  Fix? yes
+
+check_blocks: increase inode 26 badness 0 to 1 for 1000c
+Inode 26, i_size is 58, should be 2048.  Fix? yes
+
+check_blocks: increase inode 26 badness 1 to 2 for 1000d
+Inode 26, i_blocks is 2, should be 4.  Fix? yes
+
+
+Running additional passes to resolve blocks claimed by more than one inode...
+Pass 1B: Rescanning for multiply-claimed blocks
+Multiply-claimed block(s) in inode 12: 27
+Multiply-claimed block(s) in inode 13: 28
+Multiply-claimed block(s) in inode 14: 29
+Multiply-claimed block(s) in inode 15: 30
+Multiply-claimed block(s) in inode 16: 31
+Multiply-claimed block(s) in inode 17: 32
+Multiply-claimed block(s) in inode 18: 33
+Multiply-claimed block(s) in inode 19: 34
+Multiply-claimed block(s) in inode 20: 27--34 36--38
+Multiply-claimed block(s) in inode 21: 36
+Multiply-claimed block(s) in inode 22: 37
+Multiply-claimed block(s) in inode 23: 38
+Multiply-claimed block(s) in inode 25: 30
+Multiply-claimed block(s) in inode 26: 31
+Pass 1C: Scanning directories for inodes with multiply-claimed blocks
+Pass 1D: Reconciling multiply-claimed blocks
+(There are 14 inodes containing multiply-claimed blocks.)
+
+pass1d: increase inode 12 badness 0 to 1 for 13001
+File /dupe1 (inode #12, mod time Tue Apr 10 21:00:00 2007) 
+  has 1 multiply-claimed block(s), shared with 1 file(s):
+pass1d: increase inode 20 badness 6 to 7 for 13002
+	/dupe9 (inode #20, mod time Thu Jan  1 03:25:45 1970)
+Clone multiply-claimed blocks? yes
+
+pass1d: increase inode 13 badness 0 to 1 for 13001
+File /dupe2 (inode #13, mod time Tue Apr 10 21:00:00 2007) 
+  has 1 multiply-claimed block(s), shared with 1 file(s):
+pass1d: increase inode 20 badness 7 to 8 for 13002
+	/dupe9 (inode #20, mod time Thu Jan  1 03:25:45 1970)
+Clone multiply-claimed blocks? yes
+
+pass1d: increase inode 14 badness 0 to 1 for 13001
+File /dupe3 (inode #14, mod time Tue Apr 10 21:00:00 2007) 
+  has 1 multiply-claimed block(s), shared with 1 file(s):
+pass1d: increase inode 20 badness 8 to 9 for 13002
+	/dupe9 (inode #20, mod time Thu Jan  1 03:25:45 1970)
+Clone multiply-claimed blocks? yes
+
+pass1d: increase inode 15 badness 0 to 1 for 13001
+File /dupe4 (inode #15, mod time Tue Apr 10 21:00:00 2007) 
+  has 1 multiply-claimed block(s), shared with 2 file(s):
+pass1d: increase inode 25 badness 2 to 3 for 13002
+	/dupeE (inode #25, mod time Tue Apr 10 21:00:00 2007)
+pass1d: increase inode 20 badness 9 to 10 for 13002
+	/dupe9 (inode #20, mod time Thu Jan  1 03:25:45 1970)
+Clone multiply-claimed blocks? yes
+
+pass1d: increase inode 16 badness 0 to 1 for 13001
+File /dupe5 (inode #16, mod time Tue Apr 10 21:00:00 2007) 
+  has 1 multiply-claimed block(s), shared with 2 file(s):
+pass1d: increase inode 26 badness 2 to 3 for 13002
+	/dupeF (inode #26, mod time Tue Apr 10 21:00:00 2007)
+pass1d: increase inode 20 badness 10 to 11 for 13002
+	/dupe9 (inode #20, mod time Thu Jan  1 03:25:45 1970)
+Clone multiply-claimed blocks? yes
+
+pass1d: increase inode 17 badness 0 to 1 for 13001
+File /dupe6 (inode #17, mod time Tue Apr 10 21:00:00 2007) 
+  has 1 multiply-claimed block(s), shared with 1 file(s):
+pass1d: increase inode 20 badness 11 to 12 for 13002
+	/dupe9 (inode #20, mod time Thu Jan  1 03:25:45 1970)
+Clone multiply-claimed blocks? yes
+
+pass1d: increase inode 18 badness 0 to 1 for 13001
+File /dupe7 (inode #18, mod time Tue Apr 10 21:00:00 2007) 
+  has 1 multiply-claimed block(s), shared with 1 file(s):
+pass1d: increase inode 20 badness 12 to 13 for 13002
+	/dupe9 (inode #20, mod time Thu Jan  1 03:25:45 1970)
+Inode 20 is badly corrupt (badness value = 13).  Clear? yes
+
+Restarting e2fsck from the beginning...
+Pass 1: Checking inodes, blocks, and sizes
+Pass 2: Checking directory structure
+Entry 'dupe9' in / (2) has deleted/unused inode 20.  Clear? yes
+
+Pass 3: Checking directory connectivity
+Pass 4: Checking reference counts
+Pass 5: Checking group summary information
+Block bitmap differences:  -(27--29) -32 -35
+Fix? yes
+
+Free blocks count wrong for group #0 (58, counted=57).
+Fix? yes
+
+Free blocks count wrong (58, counted=57).
+Fix? yes
+
+Inode bitmap differences:  -20
+Fix? yes
+
+Free inodes count wrong for group #0 (6, counted=7).
+Fix? yes
+
+Free inodes count wrong (6, counted=7).
+Fix? yes
+
+
+test_filesys: ***** FILE SYSTEM WAS MODIFIED *****
+test_filesys: 25/32 files (8.0% non-contiguous), 43/100 blocks
+Exit status is 1
