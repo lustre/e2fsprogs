@@ -32,10 +32,34 @@ struct ext2_ext_attr_entry {
 	__u32	e_value_inum;	/* inode in which the value is stored */
 	__u32	e_value_size;	/* size of attribute value */
 	__u32	e_hash;		/* hash value of name and value */
-#if 0
+#if 1
 	char	e_name[0];	/* attribute name */
 #endif
 };
+
+#define BHDR(block) ((struct ext2_ext_attr_header *)block)
+#define IHDR(inode) ((__u32 *)((char *)inode + EXT2_GOOD_OLD_INODE_SIZE + \
+				(inode)->i_extra_isize))
+#define ENTRY(ptr) ((struct ext2_ext_attr_entry *)(ptr))
+
+/* Name indexes */
+#define EXT2_ATTR_INDEX_USER			1
+#define EXT2_ATTR_INDEX_POSIX_ACL_ACCESS	2
+#define EXT2_ATTR_INDEX_POSIX_ACL_DEFAULT	3
+#define EXT2_ATTR_INDEX_TRUSTED			4
+#define EXT2_ATTR_INDEX_LUSTRE			5
+#define EXT2_ATTR_INDEX_SECURITY		6
+#define EXT2_ATTR_INDEX_MAX			7
+
+#define EXT2_ATTR_INDEX_USER_PREFIX		 "user."
+#define EXT2_ATTR_INDEX_POSIX_ACL_ACCESS_PREFIX	 "system.posix_acl_access"
+#define EXT2_ATTR_INDEX_POSIX_ACL_DEFAULT_PREFIX "system.posix_acl_default"
+#define EXT2_ATTR_INDEX_TRUSTED_PREFIX		 "trusted."
+#define EXT2_ATTR_INDEX_LUSTRE_PREFIX		 "lustre."
+#define EXT2_ATTR_INDEX_SECURITY_PREFIX		 "security."
+
+#define EXT2_ATTR_PREFIX(index) (index ## _PREFIX)
+#define EXT2_ATTR_PREFIX_LEN(index) (index ## _PRE_LEN)
 
 #define EXT2_EXT_ATTR_PAD_BITS		2
 #define EXT2_EXT_ATTR_PAD		((unsigned) 1<<EXT2_EXT_ATTR_PAD_BITS)

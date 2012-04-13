@@ -526,6 +526,14 @@ static struct e2fsck_problem problem_table[] = {
 	     "not compatible. Resize @i should be disabled.  "),
 	  PROMPT_FIX, 0, 0, 0, 0 },
 
+	{ PR_0_MIN_EXTRA_ISIZE_INVALID,
+	  N_("@S has invalid s_min_extra_isize.  "),
+	  PROMPT_FIX, PR_PREEN_OK },
+
+	{ PR_0_WANT_EXTRA_ISIZE_INVALID,
+	  N_("@S has invalid s_want_extra_isize.  "),
+	  PROMPT_FIX, PR_PREEN_OK },
+
 	/* Pass 1 errors */
 
 	/* Pass 1: Checking inodes, blocks, and sizes */
@@ -1278,6 +1286,37 @@ static struct e2fsck_problem problem_table[] = {
 	{ PR_1_HTREE_CANNOT_SIPHASH,
 	  N_("@h %i uses SipHash, but should not.  "),
 	  PROMPT_CLEAR_HTREE, PR_PREEN_OK, 0, 0, 0 },
+
+	/* expand inode */
+	{ PR_1_EXPAND_EISIZE_WARNING,
+	  N_("\ne2fsck is being run with \"expand_extra_isize\" option or\n"
+	     "s_min_extra_isize of %d bytes has been set in the superblock.\n"
+	     "Inode %i does not have enough free space.  Either some EAs\n"
+	     "need to be deleted from this inode or the RO_COMPAT_EXTRA_ISIZE\n"
+	     "flag must be cleared.\n\n"), PROMPT_NONE, PR_PREEN_OK | PR_NO_OK |
+	     PR_PREEN_NOMSG },
+
+	/* expand inode */
+	{ PR_1_EXPAND_EISIZE,
+	  N_("Expanding @i %i.\n"),
+	  PROMPT_NONE, PR_PREEN_OK | PR_NO_OK | PR_PREEN_NOMSG },
+
+	/* delete an EA so that EXTRA_ISIZE feature may be enabled */
+	{ PR_1_EISIZE_DELETE_EA,
+	  N_("Delete EA %s of @i %i so that EXTRA_ISIZE feature may be "
+	     "enabled?\n"), PROMPT_FIX, PR_NO_OK | PR_PREEN_NO },
+
+	/* an EA needs to be deleted by e2fsck is being run with -p or -y */
+	{ PR_1_EA_BLK_NOSPC,
+	  N_("An EA needs to be deleted for @i %i but e2fsck is being run\n"
+	     "with -p or -y mode.\n"),
+	  PROMPT_ABORT, 0 },
+
+	/* disable EXTRA_ISIZE feature since inode cannot be expanded */
+	{ PR_1_CLEAR_EXTRA_ISIZE,
+	  N_("Disable EXTRA_ISIZE feature since @i %i cannot be expanded\n"
+	     "without deletion of an EA.\n"),
+	  PROMPT_FIX, 0 },
 
 	/* Failed to goto block group */
 	{ PR_1_SCAN_GOTO,
@@ -2241,6 +2280,11 @@ static struct e2fsck_problem problem_table[] = {
 	  /* xgettext:no-c-format */
 	  N_("@g %g @b @B does not match checksum.\n"),
 	  PROMPT_FIX, PR_LATCH_BBITMAP | PR_PREEN_OK, 0, 0, 0 },
+
+	/* Expand inode */
+	{ PR_5_EXPAND_EISIZE,
+	  N_("Expanding @i %i.\n"),
+	  PROMPT_NONE, PR_PREEN_OK | PR_NO_OK | PR_PREEN_NOMSG },
 
 	/* Post-Pass 5 errors */
 
