@@ -905,7 +905,11 @@ void check_super_block(e2fsck_t ctx)
  * unfortunately, we shouldn't ignore it since if it's not set in the
  * backup, the extended attributes in the filesystem will be stripped
  * away.
+ *
+ * Well, I'm still going that route for now, 'til I do something
+ * better.  Full-fsck after a fresh install is just no good.  -ERS
  */
+#define FEATURE_COMPAT_IGNORE          (EXT2_FEATURE_COMPAT_EXT_ATTR)
 #define FEATURE_RO_COMPAT_IGNORE	(EXT2_FEATURE_RO_COMPAT_LARGE_FILE| \
 					 EXT4_FEATURE_RO_COMPAT_DIR_NLINK)
 #define FEATURE_INCOMPAT_IGNORE		(EXT3_FEATURE_INCOMPAT_EXTENTS| \
@@ -956,6 +960,9 @@ int check_backup_super_block(e2fsck_t ctx)
 		    (EXT2_INODE_SIZE(backup_sb) < EXT2_GOOD_OLD_INODE_SIZE))
 			continue;
 
+#define SUPER_COMPAT_DIFFERENT(x)	\
+	((fs->super->x & ~FEATURE_COMPAT_IGNORE) !=	\
+	 (backup_sb->x & ~FEATURE_COMPAT_IGNORE))
 #define SUPER_INCOMPAT_DIFFERENT(x)	\
 	((fs->super->x & ~FEATURE_INCOMPAT_IGNORE) !=	\
 	 (backup_sb->x & ~FEATURE_INCOMPAT_IGNORE))
@@ -965,7 +972,7 @@ int check_backup_super_block(e2fsck_t ctx)
 #define SUPER_DIFFERENT(x)		\
 	(fs->super->x != backup_sb->x)
 
-		if (SUPER_DIFFERENT(s_feature_compat) ||
+		if (SUPER_COMPAT_DIFFERENT(s_feature_compat) ||
 		    SUPER_INCOMPAT_DIFFERENT(s_feature_incompat) ||
 		    SUPER_RO_COMPAT_DIFFERENT(s_feature_ro_compat) ||
 		    SUPER_DIFFERENT(s_blocks_count) ||
