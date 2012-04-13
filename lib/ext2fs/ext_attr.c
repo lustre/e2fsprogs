@@ -1907,8 +1907,6 @@ static errcode_t ext2fs_attr_ibody_find(ext2_filsys fs,
 					struct ext2_attr_info *i,
 					struct ext2_attr_ibody_find *is)
 {
-	__u32 *eamagic;
-	char *start;
 	errcode_t error;
 
 	if (EXT2_INODE_SIZE(fs->super) == EXT2_GOOD_OLD_INODE_SIZE)
@@ -1916,17 +1914,13 @@ static errcode_t ext2fs_attr_ibody_find(ext2_filsys fs,
 
 	if (inode->i_extra_isize == 0)
 		return 0;
-	eamagic = IHDR(inode);
 
-	start = (char *)inode + EXT2_GOOD_OLD_INODE_SIZE +
-			inode->i_extra_isize + sizeof(__u32);
-	is->s.first = (struct ext2_ext_attr_entry *)start;
-	is->s.base = start;
+	is->s.first = &IHDR(inode)->h_first_entry[0];
+	is->s.base = (char *)is->s.first;
 	is->s.here = is->s.first;
 	is->s.end = (char *)inode + EXT2_INODE_SIZE(fs->super);
-	if (*eamagic == EXT2_EXT_ATTR_MAGIC) {
-		error = ext2fs_attr_check_names((struct ext2_ext_attr_entry *)
-						start, is->s.end);
+	if (IHDR(inode)->h_magic == EXT2_EXT_ATTR_MAGIC) {
+		error = ext2fs_attr_check_names(is->s.first, is->s.end);
 		if (error)
 			return error;
 		/* Find the named attribute. */
@@ -2144,7 +2138,6 @@ static errcode_t ext2fs_attr_ibody_set(ext2_filsys fs,
 				       struct ext2_attr_info *i,
 				       struct ext2_attr_ibody_find *is)
 {
-	__u32 *eamagic;
 	struct ext2_attr_search *s = &is->s;
 	errcode_t error;
 
@@ -2155,11 +2148,10 @@ static errcode_t ext2fs_attr_ibody_set(ext2_filsys fs,
 	if (error)
 		return error;
 
-	eamagic = IHDR(inode);
 	if (!EXT2_EXT_IS_LAST_ENTRY(s->first))
-		*eamagic = EXT2_EXT_ATTR_MAGIC;
+		IHDR(inode)->h_magic = EXT2_EXT_ATTR_MAGIC;
 	else
-		*eamagic = 0;
+		IHDR(inode)->h_magic = 0;
 
 	return ext2fs_write_inode_full(fs, is->ino, (struct ext2_inode *)inode,
 				       EXT2_INODE_SIZE(fs->super));
@@ -2324,6 +2316,7 @@ static errcode_t ext2fs_attr_block_get(ext2_filsys fs, struct ext2_inode *inode,
 		}
 		memcpy(buffer, block_buf + entry->e_value_offs,
 		       entry->e_value_size);
+		error = 0;
 	}
 
 cleanup:
@@ -2331,6 +2324,22 @@ cleanup:
 		ext2fs_free_mem(&block_buf);
 	return error;
 }
+
+static errcode_t ext2fs_attr_check_ibody(ext2_filsys fs,
+					 struct ext2_inode_large *inode)
+{
+	const int inode_size = EXT2_INODE_SIZE(fs->super);
+
+	if (inode_size == EXT2_GOOD_OLD_INODE_SIZE)
+		return EXT2_ET_EA_NAME_NOT_FOUND;
+
+	if (IHDR(inode)->h_magic != EXT2_EXT_ATTR_MAGIC)
+		return EXT2_ET_EA_BAD_MAGIC;
+
+	return ext2fs_attr_check_names(&IHDR(inode)->h_first_entry[0],
+				       (char *)inode + inode_size);
+}
+
 
 static errcode_t ext2fs_attr_ibody_get(ext2_filsys fs,
 				       struct ext2_inode_large *inode,
@@ -2340,26 +2349,16 @@ static errcode_t ext2fs_attr_ibody_get(ext2_filsys fs,
 {
 	struct ext2_ext_attr_entry *entry;
 	int error;
-	char *end, *start;
-	__u32 *eamagic;
 
-	if (EXT2_INODE_SIZE(fs->super) == EXT2_GOOD_OLD_INODE_SIZE)
-		return EXT2_ET_EA_NAME_NOT_FOUND;
-
-	eamagic = IHDR(inode);
-	error = ext2fs_attr_check_block(fs, buffer);
+	error = ext2fs_attr_check_ibody(fs, inode);
 	if (error)
 		return error;
 
-	start = (char *)inode + EXT2_GOOD_OLD_INODE_SIZE +
-			inode->i_extra_isize + sizeof(__u32);
-	entry = (struct ext2_ext_attr_entry *)start;
-	end = (char *)inode + EXT2_INODE_SIZE(fs->super);
-	error = ext2fs_attr_check_names(entry, end);
-	if (error)
-		goto cleanup;
+	entry = &IHDR(inode)->h_first_entry[0];
+
 	error = ext2fs_attr_find_entry(&entry, name_index, name,
-				       end - (char *)entry, 0);
+				(char *)inode + EXT2_INODE_SIZE(fs->super) -
+				(char *)entry, 0);
 	if (error)
 		goto cleanup;
 	if (easize)
@@ -2369,7 +2368,8 @@ static errcode_t ext2fs_attr_ibody_get(ext2_filsys fs,
 			error = EXT2_ET_EA_TOO_BIG;
 			goto cleanup;
 		}
-		memcpy(buffer, start + entry->e_value_offs,entry->e_value_size);
+		memcpy(buffer, (char *)&IHDR(inode)->h_first_entry[0] +
+			       entry->e_value_offs, entry->e_value_size);
 	}
 
 cleanup:
@@ -2429,7 +2429,6 @@ errcode_t ext2fs_expand_extra_isize(ext2_filsys fs, ext2_ino_t ino,
 				    int *needed_size)
 {
 	struct ext2_inode *inode_buf = NULL;
-	__u32 *eamagic = NULL;
 	struct ext2_ext_attr_header *header = NULL;
 	struct ext2_ext_attr_entry *entry = NULL, *last = NULL;
 	struct ext2_attr_ibody_find is = {
@@ -2467,10 +2466,9 @@ retry:
 	if (inode->i_extra_isize >= new_extra_isize)
 		goto cleanup;
 
-	eamagic = IHDR(inode);
 	start = (char *)inode + EXT2_GOOD_OLD_INODE_SIZE + inode->i_extra_isize;
 	/* No extended attributes present */
-	if (*eamagic != EXT2_EXT_ATTR_MAGIC) {
+	if (IHDR(inode)->h_magic != EXT2_EXT_ATTR_MAGIC) {
 		memset(start, 0,
 		       EXT2_INODE_SIZE(fs->super) - EXT2_GOOD_OLD_INODE_SIZE -
 		       inode->i_extra_isize);
