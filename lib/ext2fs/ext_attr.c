@@ -46,7 +46,7 @@ __u32 ext2fs_ext_attr_hash_entry(struct ext2_ext_attr_entry *entry, void *data)
 	}
 
 	/* The hash needs to be calculated on the data in little-endian. */
-	if (entry->e_value_block == 0 && entry->e_value_size != 0) {
+	if (entry->e_value_inum == 0 && entry->e_value_size != 0) {
 		__u32 *value = (__u32 *)data;
 		for (n = (entry->e_value_size + EXT2_EXT_ATTR_ROUND) >>
 			 EXT2_EXT_ATTR_PAD_BITS; n; n--) {
@@ -209,6 +209,7 @@ struct ext2_attr_ibody_find {
 };
 
 struct ext2_attr_block_find {
+	ext2_ino_t ino;
 	struct ext2_attr_search s;
 	char *block;
 };
@@ -221,7 +222,7 @@ void ext2fs_attr_shift_entries(struct ext2_ext_attr_entry *entry,
 
 	/* Adjust the value offsets of the entries */
 	for (; !EXT2_EXT_IS_LAST_ENTRY(last); last = EXT2_EXT_ATTR_NEXT(last)) {
-		if (!last->e_value_block && last->e_value_size) {
+		if (last->e_value_inum == 0 && last->e_value_size) {
 			last->e_value_offs = last->e_value_offs +
 							value_offs_shift;
 		}
@@ -242,7 +243,7 @@ int ext2fs_attr_free_space(struct ext2_ext_attr_entry *last,
 {
 	for (; !EXT2_EXT_IS_LAST_ENTRY(last); last = EXT2_EXT_ATTR_NEXT(last)) {
 		*total += EXT2_EXT_ATTR_LEN(last->e_name_len);
-		if (!last->e_value_block && last->e_value_size) {
+		if (last->e_value_inum == 0 && last->e_value_size) {
 			int offs = last->e_value_offs;
 			if (offs < *min_offs)
 				*min_offs = offs;
@@ -378,7 +379,7 @@ static errcode_t ext2fs_attr_set_entry(ext2_filsys fs, struct ext2_attr_info *i,
 	/* Compute min_offs and last. */
 	for (last = s->first; !EXT2_EXT_IS_LAST_ENTRY(last);
 	     last = EXT2_EXT_ATTR_NEXT(last)) {
-		if (!last->e_value_block && last->e_value_size) {
+		if (last->e_value_inum == 0 && last->e_value_size) {
 			int offs = last->e_value_offs;
 
 			if (offs < min_offs)
@@ -388,7 +389,7 @@ static errcode_t ext2fs_attr_set_entry(ext2_filsys fs, struct ext2_attr_info *i,
 	free = min_offs - ((char *)last - s->base) - sizeof(__u32);
 
 	if (!s->not_found) {
-		if (!s->here->e_value_block && s->here->e_value_size) {
+		if (s->here->e_value_inum == 0 && s->here->e_value_size) {
 			int size = s->here->e_value_size;
 			free += EXT2_EXT_ATTR_SIZE(size);
 		}
@@ -411,7 +412,7 @@ static errcode_t ext2fs_attr_set_entry(ext2_filsys fs, struct ext2_attr_info *i,
 		s->here->e_name_len = name_len;
 		memcpy(s->here->e_name, i->name, name_len);
 	} else {
-		if (!s->here->e_value_block && s->here->e_value_size) {
+		if (s->here->e_value_inum == 0 && s->here->e_value_size) {
 			char *first_val = s->base + min_offs;
 			int offs = s->here->e_value_offs;
 			char *val = s->base + offs;
@@ -440,7 +441,7 @@ static errcode_t ext2fs_attr_set_entry(ext2_filsys fs, struct ext2_attr_info *i,
 			while (!EXT2_EXT_IS_LAST_ENTRY(last)) {
 				int o = last->e_value_offs;
 
-				if (!last->e_value_block &&
+				if (last->e_value_inum == 0 &&
 				    last->e_value_size && o < offs)
 					last->e_value_offs = o + size;
 				last = EXT2_EXT_ATTR_NEXT(last);
@@ -558,8 +559,19 @@ static errcode_t ext2fs_attr_block_set(ext2_filsys fs, struct ext2_inode *inode,
 	/* Update the i_blocks if we added a new EA block */
 	if (!inode->i_file_acl && new_buf)
 		inode->i_blocks += fs->blocksize / 512;
+
+	/* Drop the previous xattr block. */
+	if (!new_buf) {
+		if (!fs->block_map)
+			ext2fs_read_block_bitmap(fs);
+		ext2fs_block_alloc_stats(fs, inode->i_file_acl, -1);
+		inode->i_blocks -= fs->blocksize / 512;
+	}
+
 	/* Update the inode. */
 	inode->i_file_acl = new_buf ? blk : 0;
+
+	ext2fs_write_inode(fs, bs->ino, inode);
 
 cleanup:
 	if (clear_flag)
@@ -868,6 +880,7 @@ errcode_t ext2fs_expand_extra_isize(ext2_filsys fs, ext2_ino_t ino,
 		.s = { .not_found = EXT2_ET_EA_NO_SPACE, },
 	};
 	struct ext2_attr_block_find bs = {
+		.ino = ino,
 		.s = { .not_found = EXT2_ET_EA_NO_SPACE, },
 	};
 	char *start, *end, *block_buf = NULL, *buffer =NULL, *b_entry_name=NULL;
