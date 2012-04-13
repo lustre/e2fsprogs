@@ -149,7 +149,8 @@ static int fill_dir_block(ext2_filsys fs,
 		}
 		ent = fd->harray + fd->num_array++;
 		ent->dir = dirent;
-		fd->dir_size += EXT2_DIR_REC_LEN(dirent->name_len & 0xFF);
+		fd->dir_size +=
+			EXT2_DIR_REC_LEN((struct ext2_dir_entry_2 *)dirent);
 		ent->ino = dirent->inode;
 		if (fd->compress)
 			ent->hash = ent->minor_hash = 0;
@@ -441,7 +442,7 @@ static errcode_t copy_dir_entries(e2fsck_t ctx,
 		ent = fd->harray + i;
 		if (ent->dir->inode == 0)
 			continue;
-		rec_len = EXT2_DIR_REC_LEN(ent->dir->name_len & 0xFF);
+		rec_len = EXT2_DIR_REC_LEN((struct ext2_dir_entry_2 *)ent->dir);
 		if (rec_len > left) {
 			if (left) {
 				left += prev_rec_len;
@@ -468,7 +469,7 @@ static errcode_t copy_dir_entries(e2fsck_t ctx,
 		if (retval)
 			return retval;
 		prev_rec_len = rec_len;
-		memcpy(dirent->name, ent->dir->name, dirent->name_len & 0xFF);
+		memcpy(dirent->name, ent->dir->name, rec_len);
 		offset += rec_len;
 		left -= rec_len;
 		if (left < slack) {
