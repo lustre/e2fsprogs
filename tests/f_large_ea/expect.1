@@ -1,0 +1,48 @@
+Pass 1: Checking inodes, blocks, and sizes
+Inode 12 has illegal extended attribute value inode 79.
+Clear? yes
+
+Inode 12, i_blocks is 2, should be 0.  Fix? yes
+
+Extended attribute in inode 13 has a hash (2037685388) which is invalid
+Clear? yes
+
+Inode 13, i_blocks is 2, should be 0.  Fix? yes
+
+Inode 14 has illegal extended attribute value inode 20.
+Clear? yes
+
+Inode 14, i_blocks is 2, should be 0.  Fix? yes
+
+Pass 2: Checking directory structure
+Pass 3: Checking directory connectivity
+Pass 4: Checking reference counts
+Unattached inode 16
+Connect to /lost+found? yes
+
+Inode 16 ref count is 2, should be 1.  Fix? yes
+
+Unattached inode 17
+Connect to /lost+found? yes
+
+Inode 17 ref count is 2, should be 1.  Fix? yes
+
+Unattached inode 18
+Connect to /lost+found? yes
+
+Inode 18 ref count is 2, should be 1.  Fix? yes
+
+Pass 5: Checking group summary information
+Block bitmap differences:  -1160 -1210 -1260
+Fix? yes
+
+Free blocks count wrong for group #0 (6821, counted=6824).
+Fix? yes
+
+Free blocks count wrong (6821, counted=6824).
+Fix? yes
+
+
+test_filesys: ***** FILE SYSTEM WAS MODIFIED *****
+test_filesys: 20/256 files (20.0% non-contiguous), 1368/8192 blocks
+Exit status is 1
