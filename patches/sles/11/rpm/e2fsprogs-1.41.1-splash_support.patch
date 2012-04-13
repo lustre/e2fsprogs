@@ -1,0 +1,188 @@
+Index: e2fsprogs-1.41.7/e2fsck/splash.c
+===================================================================
+--- /dev/null
++++ e2fsprogs-1.41.7/e2fsck/splash.c
+@@ -0,0 +1,100 @@
++/*
++ * add support for switching the splash screen on boot
++ */
++#include <stdio.h>
++#include <string.h>
++#include <sys/types.h>
++#include <sys/stat.h>
++#include <fcntl.h>
++#include <unistd.h>
++#include <errno.h>
++#include "splash.h"
++
++static int verbose = 0;
++
++/* nop implementation
++ */
++static void nop(void)
++{
++}
++
++static struct splash_ops nop_ops = {
++	.splash_on = nop,
++	.splash_off = nop
++};
++
++/*
++ *  bootsplash implementation
++ */
++#define BOOTSPLASH_CTL	"/proc/splash"
++
++static int bootsplash_exists(void)
++{
++	struct stat sb;
++
++	if (stat(BOOTSPLASH_CTL, &sb) == -1)
++		return 0;
++
++	if (S_ISREG(sb.st_mode))
++		return 1;
++
++	return 0;
++}
++
++/* write msg to splash control */
++static void bootsplash_msg(const char *msg, size_t size)
++{
++	int fd;
++	size_t written;
++
++	fd = open(BOOTSPLASH_CTL, O_WRONLY);
++	if (fd == -1) {
++		if (verbose)
++			printf("cannot open %s\n", BOOTSPLASH_CTL);
++		return;
++	}
++
++	written = write(fd, msg, size);
++	if (written != size) {
++		if (verbose)
++			printf("size = %i, written = %i\n", size, written);
++	}
++
++	close(fd);
++}
++
++static void bootsplash_on(void)
++{
++	if (verbose)
++		printf("setting bootsplash silent\n");
++	bootsplash_msg("silent\n", 7);
++}
++
++static void bootsplash_off(void)
++{
++	if (verbose)
++		printf("setting bootsplash verbose\n");
++	bootsplash_msg("verbose\n", 8);
++}
++
++static struct splash_ops bootsplash_ops = {
++	.splash_on = bootsplash_on,
++	.splash_off = bootsplash_off
++};
++
++/*
++ * Initialisation
++ */
++void splash_init(struct splash_ops **ops)
++{
++	if (bootsplash_exists())
++		*ops = &bootsplash_ops;
++	else
++		*ops = &nop_ops;
++}
++
++void splash_set_verbose(void)
++{
++	verbose = 1;
++}
++
+Index: e2fsprogs-1.41.7/e2fsck/splash.h
+===================================================================
+--- /dev/null
++++ e2fsprogs-1.41.7/e2fsck/splash.h
+@@ -0,0 +1,13 @@
++#ifndef _SPLASH_H
++#define _SPLASH_H
++
++struct splash_ops {
++	void (*splash_on)(void);
++	void (*splash_off)(void);
++};
++
++void splash_init(struct splash_ops **ops);
++void splash_set_verbose(void);
++
++#endif /* _SPLASH_H */
++
+Index: e2fsprogs-1.42.3/e2fsck/Makefile.in
+===================================================================
+--- e2fsprogs-1.42.3/e2fsck/Makefile.in
++++ e2fsprogs-1.42.3/e2fsck/Makefile.in
+@@ -71,7 +71,7 @@ COMPILE_ET=$(top_builddir)/lib/et/compile_et --build-tree
+ #
+ #MCHECK= -DMCHECK
+ 
+-OBJS= crc32.o dict.o unix.o e2fsck.o super.o pass1.o pass1b.o pass2.o \
++OBJS= crc32.o dict.o unix.o e2fsck.o super.o pass1.o pass1b.o pass2.o splash.o \
+ 	pass3.o pass4.o pass5.o pass6.o journal.o badblocks.o util.o dirinfo.o \
+ 	dx_dirinfo.o ehandler.o problem.o message.o quota.o recovery.o \
+ 	region.o revoke.o ea_refcount.o rehash.o profile.o prof_err.o \
+@@ -119,6 +119,7 @@ SRCS= $(srcdir)/e2fsck.c \
+ 	$(srcdir)/rehash.c \
+ 	$(srcdir)/region.c \
+ 	$(srcdir)/profile.c \
++	$(srcdir)/splash.c \
+ 	$(srcdir)/sigcatcher.c \
+ 	$(srcdir)/logfile.c \
+ 	prof_err.c \
+@@ -551,6 +552,7 @@ region.o: $(srcdir)/region.c $(top_builddir)/lib/config.h \
+  $(srcdir)/profile.h prof_err.h $(top_srcdir)/lib/quota/mkquota.h \
+  $(top_srcdir)/lib/quota/quotaio.h $(top_srcdir)/lib/quota/dqblk_v2.h \
+  $(top_srcdir)/lib/quota/quotaio_tree.h $(top_srcdir)/lib/../e2fsck/dict.h
++splash.o: splash.c splash.h
+ profile.o: $(srcdir)/profile.c $(top_builddir)/lib/config.h \
+  $(top_builddir)/lib/dirpaths.h $(top_srcdir)/lib/et/com_err.h \
+  $(srcdir)/profile.h prof_err.h
+Index: e2fsprogs-1.41.7/e2fsck/unix.c
+===================================================================
+--- e2fsprogs-1.41.7.orig/e2fsck/unix.c
++++ e2fsprogs-1.41.7/e2fsck/unix.c
+@@ -54,6 +54,7 @@ extern int optind;
+ #include "et/com_err.h"
+ #include "e2p/e2p.h"
+ #include "e2fsck.h"
++#include "splash.h"
+ #include "problem.h"
+ #include "../version.h"
+ 
+@@ -1348,6 +1349,7 @@ int main (int argc, char *argv[])
+ 	int sysval, sys_page_size = 4096;
+	int old_bitmaps;
+ 	__u32 features[3];
++	struct splash_ops *sops;
+ 	char *cp;
+ 	int qtype;  /* quota type */
+ 
+@@ -1380,6 +1382,7 @@ int main (int argc, char *argv[])
+ 			_("while trying to initialize program"));
+ 		exit(FSCK_ERROR);
+ 	}
++	splash_init(&sops);
+ 	reserve_stdio_fds();
+ 
+	set_up_logging(ctx);
+@@ -1806,6 +1809,7 @@ print_unsupp_features:
+ 	}
+ 
+ 	check_resize_inode(ctx);
++	sops->splash_off();
+ 	if (bad_blocks_file)
+ 		read_bad_blocks_file(ctx, bad_blocks_file, replace_bad_blocks);
+ 	else if (cflag)
