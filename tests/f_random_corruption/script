@@ -1,0 +1,255 @@
+# This is to make sure that if this test fails other tests can still be run
+# instead of doing an exit. We break before the end of the loop.
+export LOOP_COUNT=${LOOP_COUNT:-1}
+export COUNT=1
+test_orig=$test_name
+
+[ "$F_RANDOM_CORRUPTION" = "skip" ] &&
+	echo "$test_name: $test_description: skipped" && exit 0
+
+log()
+{
+	[ "$VERBOSE" ] && echo "$*"
+	echo "$*" >> $OUT
+}
+
+error()
+{
+	log "$*"
+	echo "$*" >> $FAILED
+}
+
+get_random_location()
+{
+	total=$1
+
+	tmp=$(((RANDOM * 32768) % total))
+
+	# Try and have more corruption in metadata at the start of the
+	# filesystem.
+	if ((tmp % 3 == 0 || tmp % 5 == 0 || tmp % 7 == 0)); then
+		tmp=$((tmp % 32768))
+	fi
+
+	echo $tmp
+}
+
+make_fs_dirty()
+{
+	from=$(get_random_location $NUM_BLKS)
+
+	# Number of blocks to write garbage into should be within fs and should
+	# not be too many.
+	num_blks_to_dirty=$((RANDOM % $1))
+
+	# write garbage into the selected blocks
+	[ ! -c /dev/urandom ] && return
+	log "writing ${num_blks_to_dirty}kB random garbage at offset ${from}kB"
+	dd if=/dev/urandom of=$TMPFILE bs=1kB seek=$from conv=notrunc \
+		count=$num_blks_to_dirty >> $OUT 2>&1
+}
+
+unset_vars()
+{
+	unset DATE ARCHIVE FS_TYPE SIZE BLK_SIZE MKFS_OPTS MOUNT_OPTS
+	unset E2FSCK FIRST_FSCK_OPTS SECOND_FSCK_OPTS OUT FAILED OKFILE
+}
+
+cleanup()
+{
+	local MSG="$*"
+
+	[ -d $MNTPT ] && rmdir $MNTPT
+	[ -z "$MSG" -a -s "$FAILED" ] && MSG=$(cat $FAILED)
+	if [ "$MSG" ]; then
+		cp $OUT $OUT.$DATE
+		error "$MSG"
+		echo ""
+		echo "error: *** This appears to be a bug in e2fsprogs ***"
+		echo "Please contact linux-ext4@vger.kernel.org for further"
+		echo "assistance.  Include $OUT.$DATE, and save $ARCHIVE"
+		echo "locally for reference."
+	else
+		rm -f $TMPFILE $ARCHIVE
+	fi
+	unset_vars
+
+	[ -n "$MSG" ] && break
+}
+
+while [ $COUNT -le $LOOP_COUNT ]; do
+# choose block and inode sizes randomly
+BLK_SIZES=(1024 2048 4096)
+INODE_SIZES=(128 256 512 1024)
+
+SEED=$(head -1 /dev/urandom | od -N 1 | awk '{ print $2 }')
+RANDOM=$SEED
+
+[ -f "$TMPFILE" ] && rm -f $TMPFILE
+TMPFILE=$test_name.tmp
+DATE=$(date '+%Y%m%d%H%M%S')
+ARCHIVE=$TMPFILE.$DATE
+SIZE=${SIZE:-$((256000 + RANDOM * RANDOM / 1024)) } # in kB
+BLK_SIZE=${BLK_SIZES[((RANDOM % ${#BLK_SIZES[*]}))]}
+INODE_SIZE=${INODE_SIZES[((RANDOM % ${#INODE_SIZES[*]}))]}
+DEF_FEATURES="sparse_super,filetype,dir_index"
+FEATURES=${FEATURES:-$DEF_FEATURES}
+
+# Do you want to try and mount the filesystem?
+MOUNT_AFTER_CORRUPTION=${MOUNT_AFTER_CORRUPTION:-"no"}
+# Do you want to remove the files from the mounted filesystem?
+# Ideally use it only in test environment.
+REMOVE_FILES=${REMOVE_FILES:-"no"}
+
+# In KB
+CORRUPTION_SIZE=${CORRUPTION_SIZE:-64}
+CORRUPTION_ITERATIONS=${CORRUPTION_ITERATIONS:-5}
+# END OF ENVIRONMENT SPECIFIED CONFIGURATION
+
+MOUNT_OPTS="-o loop"
+MNTPT=$(mktemp -d)
+OUT=$test_name.log
+FAILED=$test_name.failed
+OKFILE=$test_name.ok
+
+MKFS=../misc/mke2fs
+E2FSCK=../e2fsck/e2fsck
+FIRST_FSCK_OPTS="-fyv"
+SECOND_FSCK_OPTS="-fyv"
+
+# Lets check if the image can fit in the current filesystem.
+NUM_BLKS=$(((SIZE * 1024) / BLK_SIZE))
+BASE_DIR=$(dirname $TMPFILE)
+BASE_AVAIL_BLOCKS=$(df -P -k $BASE_DIR  | awk '/%/ { print $4 }')
+
+if [ $BASE_AVAIL_BLOCKS -eq 0 ]; then
+	log "$BASE_DIR reports no free blocks? Try 16384"
+	NUM_BLKS=16384 # shouldn't be worse than any other test?
+elif [ $BASE_AVAIL_BLOCKS -lt $((NUM_BLKS * (BLK_SIZE / 1024))) ]; then
+	NUM_BLKS=$((BASE_AVAIL_BLOCKS - RANDOM))
+	SIZE=$((NUM_BLKS * BLK_SIZE))
+	log "$BASE_DIR too small, shrunk image size to $SIZE"
+fi
+
+# Lets have a journal more times than not.
+HAVE_JOURNAL=$((RANDOM % 12))
+if [ -z "$FS_TYPE" -a $HAVE_JOURNAL -lt 10 ]; then
+	if [ $HAVE_JOURNAL -lt 9 ]; then
+		[ $HAVE_JOURNAL -eq 0 ] && FEATURES="$FEATURES,64bit"
+		FS_TYPE="ext4"
+		HAVE_JOURNAL="-j"
+	else
+		FS_TYPE="ext3"
+		HAVE_JOURNAL="-j"
+	fi
+elif [ -z "$FS_TYPE" ]; then
+	FS_TYPE="ext2"
+	HAVE_JOURNAL=""
+else
+	log "using environment-supplied FS_TYPE=$FS_TYPE"
+fi
+
+# meta_bg and resize_inode features should not be enabled simultaneously
+if [ $((RANDOM % 12)) -eq 0 ]; then
+	FEATURES="$FEATURES,meta_bg,^resize_inode"
+else
+	FEATURES="$FEATURES,resize_inode"
+fi
+
+if [ "$FS_TYPE" = "ext4" ]; then
+	if [ $((RANDOM % 8)) -eq 0 ]; then
+		FEATURES="$FEATURES,mmp"
+	fi
+	if [ $((RANDOM % 6)) -eq 0 ]; then
+		HAVE_JOURNAL=""
+		FEATURES="$FEATURES,^has_journal"
+	fi
+	if [ $((RANDOM % 12)) -eq 0 ]; then
+		FIRST_FSCK_OPTS="$FIRST_FSCK_OPTS -Eexpand_extra_isize"
+	fi
+fi
+
+MKFS_OPTS="$HAVE_JOURNAL -t $FS_TYPE -b $BLK_SIZE -I $INODE_SIZE -O $FEATURES"
+
+# Truncate the output log file
+> $OUT
+> $TMPFILE
+rm -f $FAILED $OKFILE
+
+log "Format the filesystem image with SIZE=$SIZE..."
+trap cleanup EXIT INT
+
+# Write some garbage blocks into the filesystem to make sure e2fsck has to do
+# a more difficult job than checking blocks of zeroes.
+log "Copy some random data into filesystem image...."
+make_fs_dirty 32768
+log "$MKFS $MKFS_OPTS -F $TMPFILE $NUM_BLKS"
+$MKFS $MKFS_OPTS -F $TMPFILE $NUM_BLKS >> $OUT 2>&1
+if [ $? -ne 0 ]; then
+	zero_size=$(grep "Device size reported to be zero" $OUT)
+	short_write=$(grep "Attempt to write .* resulted in short write" $OUT)
+
+	if [ -n "$zero_size" -o -n "$short_write" ]; then
+		echo "mkfs failed due to device size of 0 or a short write."
+		echo "This is harmless and need not be reported."
+	else
+		cleanup "mkfs failed - internal error. Aborting test..."
+	fi
+fi
+$DUMPE2FS -h $TMPFILE >> $OUT 2>&1
+
+log "Corrupt the image by moving around blocks of data..."
+log
+for (( i = 0; i < $CORRUPTION_ITERATIONS; i++ )); do
+	from=$(get_random_location $NUM_BLKS)
+	to=$(get_random_location $NUM_BLKS)
+
+	log "Moving ${CORRUPTION_SIZE}kB from block ${from}kB to ${to}kB"
+	dd if=$TMPFILE of=$TMPFILE bs=1k count=$CORRUPTION_SIZE conv=notrunc \
+		skip=$from seek=$to >> $OUT 2>&1
+
+	# more corruption by overwriting blocks from within the filesystem.
+	make_fs_dirty $CORRUPTION_SIZE
+done
+
+# Copy the image for reproducing the bug.
+cp --sparse=always $TMPFILE $ARCHIVE >> $OUT 2>&1
+
+log "First pass of fsck..."
+$E2FSCK $FIRST_FSCK_OPTS $TMPFILE >> $OUT 2>&1
+RET=$?
+
+# Run e2fsck for the second time and check if the problem gets solved.
+# After we can report error with pass1.
+[ $((RET & 1)) == 0 ] || log "The first fsck corrected errors"
+[ $((RET & 2)) == 0 ] || error "The first fsck wants a reboot"
+[ $((RET & 4)) == 0 ] || error "The first fsck left uncorrected errors"
+[ $((RET & 8)) == 0 ] || error "The first fsck reports an operational error"
+[ $((RET & 16)) == 0 ] || error "The first fsck reports there was a usage error"
+[ $((RET & 32)) == 0 ] || error "The first fsck reports it was cancelled"
+[ $((RET & 128)) == 0 ] || error "The first fsck reports a library error"
+
+log "---------------------------------------------------------"
+
+log "Second pass of fsck..."
+$E2FSCK $SECOND_FSCK_OPTS $TMPFILE >> $OUT 2>&1
+RET=$?
+[ $((RET & 1)) == 0 ] || cleanup "The second fsck corrected errors!"
+[ $((RET & 2)) == 0 ] || cleanup "The second fsck wants a reboot"
+[ $((RET & 4)) == 0 ] || cleanup "The second fsck left uncorrected errors"
+[ $((RET & 8)) == 0 ] || cleanup "The second fsck reports an operational error"
+[ $((RET & 16)) == 0 ] || cleanup "The second fsck reports a usage error"
+[ $((RET & 32)) == 0 ] || cleanup "The second fsck reports it was cancelled"
+[ $((RET & 128)) == 0 ] || cleanup "The second fsck reports a library error"
+
+[ -f $FAILED ] && cleanup "Test Failed"
+
+# Report success
+touch $OKFILE
+echo "$test_name: $test_description: ok"
+
+cleanup
+
+COUNT=$((COUNT + 1))
+test_name=${test_orig}_$COUNT
+done # while [ $COUNT -le $LOOP_COUNT ]; do
