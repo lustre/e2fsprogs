@@ -721,6 +721,9 @@ struct problem_context {
  */
 #define PR_1_CLEAR_EXTRA_ISIZE			0x01008B
 
+/* invalid inode creation time */
+#define PR_1_CRTIME_BAD				0x01008C
+
 
 /*
  * Pass 1b errors
@@ -1043,6 +1046,9 @@ struct problem_context {
 
 /* Encrypted directory entry is too short */
 #define PR_2_BAD_ENCRYPTED_NAME		0x020050
+
+/* Inode completely corrupt */
+#define PR_2_INODE_TOOBAD		0x020051
 
 /*
  * Pass 3 errors
