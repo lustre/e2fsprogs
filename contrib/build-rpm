@@ -43,6 +43,9 @@ if [ -z "$DISTRO" ]; then
     if grep "Fedora " /etc/issue; then
         DISTRO="Fedora"
     fi
+    if grep "SUSE Linux Enterprise Server " /etc/issue; then
+        DISTRO="SUSE LINUX"
+    fi
 fi
 if [ -z "$DISTRO" ]; then
     echo "Could not determine the distribution.  Please install the lsb_release binary"
@@ -54,6 +57,9 @@ if [ -z "$RELEASE" ]; then
         Fedora)
             RELEASE=$(grep Fedora /etc/issue | sed -e 's/Fedora release //' -e 's/ .*//')
         ;;
+        SUSE\ LINUX)
+            RELEASE=$(grep SUSE /etc/issue | sed -e 's/SUSE Linux Enterprise Server //' -e 's/ .*//')
+        ;;
     esac
 fi
 if [ -z "$RELEASE" ]; then
@@ -63,7 +69,7 @@ fi
 case "$DISTRO-$RELEASE" in
     RedHatEnterpriseServer-6*) DISTRO=RHEL; RELEASE=6;;
     CentOS-6*) DISTRO=RHEL; RELEASE=6;;
-    Fedora-1[234]) DISTRO=RHEL; RELEASE=6;;	# use the same .spec for now
+    SUSE\ LINUX-1[1-5]* | SUSE-1[2-5]*) DISTRO=SUSE_LINUX; RELEASE=11+;;
 esac
 
 SPECFILE="$currdir/e2fsprogs-${DISTRO// /_}-$RELEASE.spec"
