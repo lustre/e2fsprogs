@@ -71,6 +71,42 @@ void e2fsck_pass5(e2fsck_t ctx)
 	ext2fs_free_block_bitmap(ctx->block_found_map);
 	ctx->block_found_map = 0;
 
+	if (ctx->flags & E2F_FLAG_EXPAND_EISIZE) {
+		int min_extra_isize;
+
+		if (!ctx->expand_eisize_map)
+			goto set_min_extra_isize;
+
+		for (pctx.ino = 1; pctx.ino < ctx->fs->super->s_inodes_count;
+		     pctx.ino++) {
+			if (ext2fs_test_inode_bitmap2(ctx->expand_eisize_map,
+			    pctx.ino)) {
+				fix_problem(ctx, PR_5_EXPAND_EISIZE, &pctx);
+				ext2fs_expand_extra_isize(ctx->fs, pctx.ino, 0,
+							  ctx->want_extra_isize,
+							  NULL, NULL);
+			}
+		}
+		ext2fs_free_inode_bitmap(ctx->expand_eisize_map);
+
+set_min_extra_isize:
+		if (ctx->fs->super->s_min_extra_isize)
+			min_extra_isize = ctx->fs->super->s_min_extra_isize;
+		else
+			min_extra_isize = ctx->want_extra_isize;
+		if (ctx->min_extra_isize >= min_extra_isize &&
+		    !ctx->fs_unexpanded_inodes) {
+			ctx->fs->super->s_min_extra_isize =ctx->min_extra_isize;
+			ctx->fs->super->s_feature_ro_compat |=
+					EXT4_FEATURE_RO_COMPAT_EXTRA_ISIZE;
+		} else {
+			ctx->fs->super->s_min_extra_isize = 0;
+			ctx->fs->super->s_feature_ro_compat &=
+					~EXT4_FEATURE_RO_COMPAT_EXTRA_ISIZE;
+		}
+		ext2fs_mark_super_dirty(ctx->fs);
+	}
+
 	print_resource_track(ctx, _("Pass 5"), &rtrack, ctx->fs->io);
 }
 
@@ -207,11 +243,7 @@ static void check_block_bitmaps(e2fsck_t ctx)
 	int		fixit, had_problem;
 	errcode_t	retval;
 	int		csum_flag;
-	int	old_desc_blocks = 0;
-	int	count = 0;
-	int	cmp_block = 0;
 	int	redo_flag = 0;
-	blk64_t	super_blk, old_desc_blk, new_desc_blk;
 	char *actual_buf, *bitmap_buf;
 
 	actual_buf = (char *) e2fsck_allocate_memory(ctx, fs->blocksize,
@@ -748,10 +780,10 @@ static void check_inode_end(e2fsck_t ctx)
 
 	/* protect loop from wrap-around if end is maxed */
 	for (i = save_inodes_count + 1; i <= end && i > save_inodes_count; i++) {
-		if (!ext2fs_test_inode_bitmap(fs->inode_map, i)) {
+		if (!ext2fs_test_inode_bitmap2(fs->inode_map, i)) {
 			if (fix_problem(ctx, PR_5_INODE_BMAP_PADDING, &pctx)) {
 				for (; i <= end; i++)
-					ext2fs_mark_inode_bitmap(fs->inode_map,
+					ext2fs_mark_inode_bitmap2(fs->inode_map,
 								 i);
 				ext2fs_mark_ib_dirty(fs);
 			} else
