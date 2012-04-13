@@ -197,8 +197,11 @@ void e2fsck_free_context(e2fsck_t ctx)
 typedef void (*pass_t)(e2fsck_t ctx);
 
 static pass_t e2fsck_passes[] = {
-	e2fsck_pass1, e2fsck_pass2, e2fsck_pass3, e2fsck_pass4,
-	e2fsck_pass5, 0 };
+	e2fsck_pass1, e2fsck_pass2, e2fsck_pass3, e2fsck_pass4, e2fsck_pass5,
+#ifdef HAVE_LFSCK
+	e2fsck_pass6,
+#endif
+	0 };
 
 #define E2F_FLAG_RUN_RETURN	(E2F_FLAG_SIGNAL_MASK|E2F_FLAG_RESTART)
 

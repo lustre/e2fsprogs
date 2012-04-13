@@ -50,6 +50,7 @@
 
 #include "e2fsck.h"
 #include <ext2fs/ext2_ext_attr.h>
+#include "ext2fs/lfsck.h"
 
 #include "problem.h"
 
@@ -394,6 +395,8 @@ static void check_ea_in_inode(e2fsck_t ctx, struct problem_context *pctx)
 	struct ext2_ext_attr_entry *entry;
 	char *start;
 	unsigned int storage_size, remain;
+	struct lov_user_md_v1 *lmm = NULL;
+	struct lustre_mdt_attrs *lma = NULL;
 	problem_t problem = 0;
 
 	inode = (struct ext2_inode_large *) pctx->inode;
@@ -464,6 +467,9 @@ static void check_ea_in_inode(e2fsck_t ctx, struct problem_context *pctx)
 			goto fix;
 		}
 
+		e2fsck_lfsck_find_ea(ctx, inode, entry,
+				     start + entry->e_value_offs, &lmm, &lma);
+
 		/* If EA value is stored in external inode then it does not
 		 * consume space here */
 		if (entry->e_value_inum == 0)
@@ -471,7 +477,15 @@ static void check_ea_in_inode(e2fsck_t ctx, struct problem_context *pctx)
 
 		entry = EXT2_EXT_ATTR_NEXT(entry);
 	}
+
+	if (lmm)
+		e2fsck_lfsck_save_ea(ctx, pctx->ino, inode->i_generation,
+				     lmm, lma);
 fix:
+	if (lmm)
+		ext2fs_free_mem(&lmm);
+	if (lma)
+		ext2fs_free_mem(&lma);
 	/*
 	 * it seems like a corruption. it's very unlikely we could repair
 	 * EA(s) in automatic fashion -bzzz
@@ -1027,6 +1041,12 @@ void e2fsck_pass1(e2fsck_t ctx)
 		ext2fs_mark_block_bitmap2(ctx->block_found_map,
 					  fs->super->s_mmp_block);
 
+	if (!(ctx->options & E2F_OPT_READONLY) &&
+	    (ctx->lustre_devtype & LUSTRE_TYPE) == LUSTRE_MDS) {
+		if (e2fsck_lfsck_remove_pending(ctx, NULL))
+			return;
+	}
+
 	while (1) {
 		if (ino % (fs->super->s_inodes_per_group * 4) == 1) {
 			if (e2fsck_mmp_update(fs))
@@ -1576,6 +1596,9 @@ void e2fsck_pass1(e2fsck_t ctx)
 		}
 		e2fsck_pass1_dupblocks(ctx, block_buf);
 	}
+
+	e2fsck_lfsck_flush_ea(ctx);
+
 	ext2fs_free_mem(&inodes_to_process);
 endit:
 	e2fsck_use_inode_shortcuts(ctx, 0);
@@ -1864,6 +1887,8 @@ static int check_ext_attr(e2fsck_t ctx, struct problem_context *pctx,
 	struct ext2_ext_attr_entry *entry;
 	int		count;
 	region_t	region = 0;
+	struct lov_user_md_v1 *lmm = NULL;
+	struct lustre_mdt_attrs *lma = NULL;
 	int ret;
 
 	blk = ext2fs_file_acl_block(fs, inode);
@@ -2024,13 +2049,28 @@ static int check_ext_attr(e2fsck_t ctx, struct problem_context *pctx,
 			entry->e_hash = hash;
 		}
 
+		if (e2fsck_lfsck_find_ea(ctx, (struct ext2_inode_large *)inode,
+					 entry, block_buf + entry->e_value_offs,
+					 &lmm, &lma) != 0) {
+			if (ctx->flags & E2F_FLAG_SIGNAL_MASK)
+				return 0;
+		}
+
 		entry = EXT2_EXT_ATTR_NEXT(entry);
 	}
+
+	if (lmm)
+		e2fsck_lfsck_save_ea(ctx, ino, inode->i_generation, lmm, lma);
+
 	if (region_allocate(region, (char *)entry - (char *)header, 4)) {
 		if (fix_problem(ctx, PR_1_EA_ALLOC_COLLISION, pctx))
 			goto clear_extattr;
 	}
 	region_free(region);
+	if (lmm)
+		ext2fs_free_mem(&lmm);
+	if (lma)
+		ext2fs_free_mem(&lma);
 
 	count = header->h_refcount - 1;
 	if (count)
@@ -2040,6 +2080,11 @@ static int check_ext_attr(e2fsck_t ctx, struct problem_context *pctx,
 	return 1;
 
 clear_extattr:
+	if (lmm)
+		ext2fs_free_mem(&lmm);
+	if (lma)
+		ext2fs_free_mem(&lma);
+
 	if (region)
 		region_free(region);
 	ext2fs_file_acl_block_set(fs, inode, 0);

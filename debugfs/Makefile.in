@@ -30,7 +30,6 @@ SRCS= debug_cmds.c $(srcdir)/debugfs.c $(srcdir)/util.c $(srcdir)/ls.c \
 	$(srcdir)/htree.c $(srcdir)/unused.c ${srcdir}/../misc/e2freefrag.c \
 	$(srcdir)/filefrag.c $(srcdir)/extent_inode.c $(srcdir)/zap.c
 
-@LFSCK_CMT@LUSTRE_INC=-I @LUSTRE@/lustre/include -I @LUSTRE@/include -I @LUSTRE@/libcfs/include -Wall
 LIBS= $(LIBEXT2FS) $(LIBE2P) $(LIBSS) $(LIBCOM_ERR) $(LIBBLKID) \
 	$(LIBUUID) $(SYSLIBS)
 DEPLIBS= $(LIBEXT2FS) $(LIBE2P) $(DEPLIBSS) $(DEPLIBCOM_ERR) \
@@ -42,9 +41,11 @@ STATIC_DEPLIBS= $(STATIC_LIBEXT2FS) $(DEPSTATIC_LIBSS) \
 		$(DEPSTATIC_LIBCOM_ERR) $(DEPSTATIC_LIBUUID) \
 		$(DEPSTATIC_LIBE2P)
 
+@LFSCK_CMT@LUSTRE_INC=-I @LUSTRE@/lustre/include -I @LUSTRE@/include -I @LUSTRE@/libcfs/include -Wall
+
 .c.o:
 	$(E) "	CC $<"
-	$(Q) $(CC) -c $(ALL_CFLAGS) $< -o $@
+	$(Q) $(CC) -c $(ALL_CFLAGS) $(LUSTRE_INC) $< -o $@
 	$(Q) $(CHECK_CMD) $(ALL_CFLAGS) $<
 
 all:: $(PROGS) $(MANPAGES)
