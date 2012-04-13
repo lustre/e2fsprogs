@@ -1223,6 +1223,11 @@ static struct e2fsck_problem problem_table[] = {
 	     "without deletion of an EA.\n"),
 	  PROMPT_FIX, 0 },
 
+	/* invalid inode creation time */
+	{ PR_1_CRTIME_BAD,
+	  N_("@i %i creation time (%t) invalid.\n"),
+	  PROMPT_CLEAR, PR_PREEN_OK | PR_NO_OK },
+
 
 	/* Pass 1b errors */
 
@@ -1736,6 +1741,11 @@ static struct e2fsck_problem problem_table[] = {
 	{ PR_2_BAD_ENCRYPTED_NAME,
 	  N_("Encrypted @E is too short.\n"),
 	  PROMPT_CLEAR, 0, 0, 0, 0 },
+
+	/* Inode too bad */
+	{ PR_2_INODE_TOOBAD,
+	  N_("@i %i is badly corrupt (badness value = %N).  "),
+	  PROMPT_CLEAR, PR_PREEN_OK },
 
 	/* Pass 3 errors */
 

@@ -221,6 +221,15 @@ be 1 or 2.  The default extended attribute version format is 2.
 Only replay the journal if required, but do not perform any further checks
 or repairs.
 .TP
+.BI inode_badness_threshold= threshold_value
+A badness counter is associated with every inode, which determines the degree
+of inode corruption. Each error found in the inode will increase the badness by
+1 or 2, and inodes with a badness at or above
+.I threshold_value
+will be prompted for deletion. The default
+.I threshold_value
+is 7.
+.TP
 .BI fragcheck
 During pass 1, print a detailed report of any discontiguous blocks for
 files in the filesystem.

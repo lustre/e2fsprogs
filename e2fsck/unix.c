@@ -786,6 +786,18 @@ static void parse_extended_opts(e2fsck_t ctx, const char *opts)
 				extended_usage++;
 				continue;
 			}
+		/* -E inode_badness_threshold=<value> */
+		} else if (strcmp(token, "inode_badness_threshold") == 0) {
+			if (!arg) {
+				extended_usage++;
+				continue;
+			}
+			ctx->inode_badness_threshold = strtoul(arg, &p, 0);
+			if (*p != '\0' || ctx->inode_badness_threshold > 200) {
+				fprintf(stderr, _("Invalid badness value.\n"));
+				extended_usage++;
+				continue;
+			}
 		} else if (strcmp(token, "journal_only") == 0) {
 			if (arg) {
 				extended_usage++;
@@ -853,6 +865,7 @@ static void parse_extended_opts(e2fsck_t ctx, const char *opts)
 		fputs(("\tshared=<preserve|lost+found|delete>\n"), stderr);
 		fputs(("\tclone=<dup|zero>\n"), stderr);
 		fputs(("\texpand_extra_isize\n"), stderr);
+		fputs(("\tinode_badness_threhold=(value)\n"), stderr);
 		fputs("\toptimize_extents\n", stderr);
 		fputs("\tno_optimize_extents\n", stderr);
 		fputs("\tinode_count_fullmap\n", stderr);
@@ -931,6 +944,8 @@ static errcode_t PRS(int argc, char *argv[], e2fsck_t *ret_ctx)
 
 	phys_mem_kb = get_memory_size() / 1024;
 	ctx->readahead_kb = ~0ULL;
+	ctx->inode_badness_threshold = BADNESS_THRESHOLD;
+
 	while ((c = getopt(argc, argv, "panyrcC:B:dE:fvtFVM:b:I:j:P:l:L:N:SsDkz:")) != EOF)
 		switch (c) {
 		case 'C':
