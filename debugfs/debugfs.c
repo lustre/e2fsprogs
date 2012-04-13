@@ -535,6 +535,7 @@ static void internal_dump_inode_extra(FILE *out,
 	struct ext2_ext_attr_entry *entry;
 	__u32 *magic;
 	char *start, *end;
+	int inode_xattr;
 	unsigned int storage_size;
 
 	fprintf(out, "Size of extra inode fields: %u\n", inode->i_extra_isize);
@@ -557,17 +558,28 @@ static void internal_dump_inode_extra(FILE *out,
 		while (!EXT2_EXT_IS_LAST_ENTRY(entry)) {
 			struct ext2_ext_attr_entry *next =
 				EXT2_EXT_ATTR_NEXT(entry);
-			if (entry->e_value_size > storage_size ||
-					(char *) next >= end) {
+			inode_xattr =
+				EXT2_HAS_INCOMPAT_FEATURE(current_fs->super,
+					EXT4_FEATURE_INCOMPAT_EA_INODE) &&
+					entry->e_value_offs == 0 &&
+					entry->e_value_inum != 0;
+			if ((entry->e_value_size > storage_size &&
+			     !inode_xattr) || (char *)next >= end) {
 				fprintf(out, "invalid EA entry in inode\n");
 				return;
 			}
 			fprintf(out, "  ");
+
 			dump_xattr_string(out, EXT2_EXT_ATTR_NAME(entry),
 					  entry->e_name_len);
 			fprintf(out, " = \"");
-			dump_xattr_string(out, start + entry->e_value_offs,
-						entry->e_value_size);
+			if (inode_xattr)
+				fprintf(out, "inode <%u>",
+					entry->e_value_inum);
+			else
+				dump_xattr_string(out,
+						  start + entry->e_value_offs,
+						  entry->e_value_size);
 			fprintf(out, "\" (%u)\n", entry->e_value_size);
 			entry = next;
 		}
