@@ -33,16 +33,16 @@
  * Pass 2 relies on the following information from previous passes:
  * 	- The directory information collected in pass 1.
  * 	- The inode_used_map bitmap
- * 	- The inode_bad_map bitmap
+ * 	- The inode_badness bitmap
  * 	- The inode_dir_map bitmap
  * 	- The encrypted_file_info
  *	- The inode_casefold_map bitmap
  *
  * Pass 2 frees the following data structures
- * 	- The inode_bad_map bitmap
  * 	- The inode_reg_map bitmap
  * 	- The encrypted_file_info
  *	- The inode_casefold_map bitmap
+ * 	- The inode_badness bitmap
  */
 
 #define _GNU_SOURCE 1 /* get strnlen() */
@@ -281,10 +281,6 @@ void e2fsck_pass2(e2fsck_t ctx)
 	ext2fs_free_mem(&buf);
 	ext2fs_free_dblist(fs->dblist);
 
-	if (ctx->inode_bad_map) {
-		ext2fs_free_inode_bitmap(ctx->inode_bad_map);
-		ctx->inode_bad_map = 0;
-	}
 	if (ctx->inode_reg_map) {
 		ext2fs_free_inode_bitmap(ctx->inode_reg_map);
 		ctx->inode_reg_map = 0;
@@ -297,6 +293,10 @@ void e2fsck_pass2(e2fsck_t ctx)
 	if (ctx->casefolded_dirs) {
 		ext2fs_u32_list_free(ctx->casefolded_dirs);
 		ctx->casefolded_dirs = 0;
+	}
+	if (ctx->inode_badness) {
+		ext2fs_free_icount(ctx->inode_badness);
+		ctx->inode_badness = 0;
 	}
 
 	clear_problem_context(&pctx);
@@ -594,6 +594,7 @@ static _INLINE_ int check_filetype(e2fsck_t ctx,
 {
 	int	filetype = ext2fs_dirent_file_type(dirent);
 	int	should_be = EXT2_FT_UNKNOWN;
+	__u16	badness = 0;
 	struct ext2_inode	inode;
 
 	if (!ext2fs_has_feature_filetype(ctx->fs->super)) {
@@ -604,16 +605,18 @@ static _INLINE_ int check_filetype(e2fsck_t ctx,
 		return 1;
 	}
 
+	if (ctx->inode_badness)
+		ext2fs_icount_fetch(ctx->inode_badness, dirent->inode,
+				    &badness);
+
 	if (ext2fs_test_inode_bitmap2(ctx->inode_dir_map, dirent->inode)) {
 		should_be = EXT2_FT_DIR;
 	} else if (ext2fs_test_inode_bitmap2(ctx->inode_reg_map,
 					    dirent->inode)) {
 		should_be = EXT2_FT_REG_FILE;
-	} else if (ctx->inode_bad_map &&
-		   ext2fs_test_inode_bitmap2(ctx->inode_bad_map,
-					    dirent->inode))
+	} else if (badness & BADNESS_BAD_MODE) {
 		should_be = 0;
-	else {
+	} else {
 		e2fsck_read_inode(ctx, dirent->inode, &inode,
 				  "check_filetype");
 		should_be = ext2_file_type(inode.i_mode);
@@ -1499,26 +1502,6 @@ skip_checksum:
 			}
 		}
 
-		/*
-		 * If the inode was marked as having bad fields in
-		 * pass1, process it and offer to fix/clear it.
-		 * (We wait until now so that we can display the
-		 * pathname to the user.)
-		 */
-		if (ctx->inode_bad_map &&
-		    ext2fs_test_inode_bitmap2(ctx->inode_bad_map,
-					     dirent->inode)) {
-			if (e2fsck_process_bad_inode(ctx, ino,
-						     dirent->inode,
-						     buf + fs->blocksize)) {
-				dirent->inode = 0;
-				dir_modified++;
-				goto next;
-			}
-			if (ctx->flags & E2F_FLAG_SIGNAL_MASK)
-				return DIRENT_ABORT;
-		}
-
 		group = ext2fs_group_of_ino(fs, dirent->inode);
 		first_unused_inode = group * fs->super->s_inodes_per_group +
 					1 + fs->super->s_inodes_per_group -
@@ -1561,6 +1544,25 @@ skip_checksum:
 			}
 		}
 
+		/*
+		 * If the inode was marked as having bad fields in
+		 * pass1, process it and offer to fix/clear it.
+		 * (We wait until now so that we can display the
+		 * pathname to the user.)
+		 */
+		if (!(ctx->flags & E2F_FLAG_RESTART_LATER) &&
+		    ctx->inode_badness &&
+		    ext2fs_icount_is_set(ctx->inode_badness, dirent->inode)) {
+			if (e2fsck_process_bad_inode(ctx, ino, dirent->inode,
+						     buf + fs->blocksize)) {
+				dirent->inode = 0;
+				dir_modified++;
+				goto next;
+			}
+			if (ctx->flags & E2F_FLAG_SIGNAL_MASK)
+				return DIRENT_ABORT;
+		}
+
 		/* 
 		 * Offer to clear unused inodes; if we are going to be
 		 * restarting the scan due to bg_itable_unused being
@@ -1575,15 +1577,19 @@ skip_checksum:
 			problem = PR_2_UNUSED_INODE;
 
 		if (problem) {
-			if (fix_problem(ctx, problem, &cd->pctx)) {
+			int next = 0;
+
+			if (fix_problem_bad(ctx, problem, &cd->pctx, 0)) {
 				dirent->inode = 0;
 				dir_modified++;
-				goto next;
+				next = 1;
 			} else {
 				ext2fs_unmark_valid(fs);
 				if (problem == PR_2_BAD_INO)
-					goto next;
+					next = 1;
 			}
+			if (next)
+				goto next;
 		}
 
 		if (check_filetype(ctx, dirent, ino, &cd->pctx))
@@ -1848,8 +1854,17 @@ static void deallocate_inode(e2fsck_t ctx, ext2_ino_t ino, char* block_buf)
 	struct problem_context	pctx;
 	__u32			count;
 	struct del_block	del_block;
+	int extent_fs = 0;
 
 	e2fsck_read_inode(ctx, ino, &inode, "deallocate_inode");
+	/* ext2fs_block_iterate2() depends on the extents flags */
+	if (inode.i_flags & EXT4_EXTENTS_FL)
+		extent_fs = 1;
+	e2fsck_clear_inode(ctx, ino, &inode, 0, "deallocate_inode");
+	if (extent_fs) {
+		inode.i_flags |= EXT4_EXTENTS_FL;
+		e2fsck_write_inode(ctx, ino, &inode, "deallocate_inode");
+	}
 	clear_problem_context(&pctx);
 	pctx.ino = ino;
 
@@ -1878,6 +1893,8 @@ static void deallocate_inode(e2fsck_t ctx, ext2_ino_t ino, char* block_buf)
 			ext2fs_block_alloc_stats2(fs,
 				  ext2fs_file_acl_block(fs, &inode), -1);
 		}
+		if (ctx->inode_badness)
+			ext2fs_icount_store(ctx->inode_badness, ino, 0);
 		ext2fs_file_acl_block_set(fs, &inode, 0);
 	}
 
@@ -1937,8 +1954,14 @@ int e2fsck_process_bad_inode(e2fsck_t ctx, ext2_ino_t dir,
 	unsigned char		*frag, *fsize;
 	struct problem_context	pctx;
 	problem_t		problem = 0;
+	__u16			badness = 0;
+	unsigned int		flags = ctx->fs->flags;
 
+	flags = ctx->fs->flags;
+	ctx->fs->flags |= EXT2_FLAG_IGNORE_CSUM_ERRORS;
 	e2fsck_read_inode(ctx, ino, &inode, "process_bad_inode");
+	ctx->fs->flags = (flags & EXT2_FLAG_IGNORE_CSUM_ERRORS) |
+                         (ctx->fs->flags & ~EXT2_FLAG_IGNORE_CSUM_ERRORS);
 
 	clear_problem_context(&pctx);
 	pctx.ino = ino;
@@ -1985,6 +2008,12 @@ int e2fsck_process_bad_inode(e2fsck_t ctx, ext2_ino_t dir,
 		} else
 			not_fixed++;
 		problem = 0;
+		/*
+		 * A large value is associated with bad mode in order to detect
+		 * that mode was corrupt in check_filetype()
+		 */
+		e2fsck_mark_inode_bad_loc(ctx, &pctx, problem, BADNESS_BAD_MODE,
+					  __func__, __LINE__);
 	}
 
 	if (inode.i_faddr) {
@@ -2062,10 +2091,18 @@ int e2fsck_process_bad_inode(e2fsck_t ctx, ext2_ino_t dir,
 			not_fixed++;
 	}
 
+	/* The high value from BADNESS_BAD_MODE should not delete the inode */
+	if (e2fsck_fix_bad_inode(ctx, &pctx)) {
+		deallocate_inode(ctx, ino, 0);
+		if (ctx->flags & E2F_FLAG_SIGNAL_MASK)
+			return 0;
+		inode_modified = 0;
+	} else {
+		not_fixed++;
+	}
+
 	if (inode_modified)
 		e2fsck_write_inode(ctx, ino, &inode, "process_bad_inode");
-	if (!not_fixed && ctx->inode_bad_map)
-		ext2fs_unmark_inode_bitmap2(ctx->inode_bad_map, ino);
 	return 0;
 }
 
@@ -2085,7 +2122,7 @@ static int allocate_dir_block(e2fsck_t ctx,
 	char			*block;
 	struct ext2_inode	inode;
 
-	if (fix_problem(ctx, PR_2_DIRECTORY_HOLE, pctx) == 0)
+	if (fix_problem_bad(ctx, PR_2_DIRECTORY_HOLE, pctx, 0) == 0)
 		return 1;
 
 	/*
