@@ -1,0 +1,76 @@
+FSCK_OPT="-fyd" # to debug inode badness
+if ! test -x $DEBUGFS_EXE; then
+	echo "$test_name: $test_description: skipped (no debugfs)"
+	return 0
+fi
+
+SKIP_GUNZIP="true"
+TEST_DATA="$test_name.tmp"
+
+echo "/ Murphy Magic.  The SeCrEt of the UnIvErSe is 43, NOT 42" > $TEST_DATA
+
+touch $TMPFILE
+$MKE2FS -N 32 -F -o Linux -b 1024 $TMPFILE 100 > /dev/null 2>&1 
+$DEBUGFS -w $TMPFILE << EOF > /tmp/log 2>&1
+set_current_time 20070410210000
+set_super_value lastcheck 0
+set_super_value hash_seed null
+set_super_value mkfs_time 20070110210000
+write $TEST_DATA dupe1
+write $TEST_DATA dupe2
+write $TEST_DATA dupe3
+write $TEST_DATA dupe4
+write $TEST_DATA dupe5
+write $TEST_DATA dupe6
+write $TEST_DATA dupe7
+write $TEST_DATA dupe8
+write $TEST_DATA dupe9
+write $TEST_DATA dupeA
+write $TEST_DATA dupeB
+write $TEST_DATA dupeC
+write $TEST_DATA dupeD
+write $TEST_DATA dupeE
+write $TEST_DATA dupeF
+stat dupe1
+stat dupe9
+stat dupeF
+set_inode_field dupe9 mtime 12345
+set_inode_field dupe9 ctime 12345
+set_inode_field dupe9 crtime 12345
+set_inode_field dupe9 block[0] 27
+set_inode_field dupe9 block[1] 28
+set_inode_field dupe9 block[2] 29
+set_inode_field dupe9 block[3] 30
+set_inode_field dupe9 block[4] 31
+set_inode_field dupe9 block[5] 32
+set_inode_field dupe9 block[6] 33
+set_inode_field dupe9 block[7] 34
+set_inode_field dupe9 block[8] 35
+set_inode_field dupe9 block[9] 36
+set_inode_field dupe9 block[10] 37
+set_inode_field dupe9 block[11] 38
+set_inode_field dupeE block[1] 30
+set_inode_field dupeF block[1] 31
+q
+EOF
+
+E2FSCK_TIME=200704102100
+export E2FSCK_TIME
+
+#cp $TMPFILE /tmp/image.sav
+#$DEBUGFS -c -f /dev/stdin > /tmp/log 2>&1 <<- EOF
+#	stat dupe1
+#	stat dupe2
+#	stat dupe3
+#	stat dupe4
+#	stat dupe5
+#	stat dupe6
+#	stat dupe7
+#	stat dupe8
+#	stat dupe9
+#EOF
+. $cmd_dir/run_e2fsck
+
+rm -f $TEST_DATA
+
+unset E2FSCK_TIME TEST_DATA

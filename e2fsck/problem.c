@@ -1358,6 +1358,11 @@ static struct e2fsck_problem problem_table[] = {
 	     "without deletion of an EA.\n"),
 	  PROMPT_FIX, 0 },
 
+	/* invalid inode creation time */
+	{ PR_1_CRTIME_BAD,
+	  N_("@i %i creation time (%t) invalid.\n"),
+	  PROMPT_CLEAR, PR_PREEN_OK | PR_NO_OK },
+
 	/* Failed to goto block group */
 	{ PR_1_SCAN_GOTO,
 	  N_("failed to goto block group"),
@@ -1414,6 +1419,11 @@ static struct e2fsck_problem problem_table[] = {
 	{ PR_1B_DUP_RANGE,
 	  " %b--%c",
 	  PROMPT_NONE, PR_LATCH_DBLOCK | PR_PREEN_NOHDR, 0, 0, 0 },
+
+	/* Inode is badly corrupt (badness value = ) */
+	{ PR_1B_INODE_TOOBAD,
+	  N_("@i %i is badly corrupt (badness value = %N).  "),
+	  PROMPT_CLEAR, PR_PREEN_OK },
 
 	/* Pass 1C: Scan directories for inodes with multiply-claimed blocks. */
 	{ PR_1C_PASS_HEADER,
@@ -1926,6 +1936,11 @@ static struct e2fsck_problem problem_table[] = {
 	{ PR_2_EA_INODE_DIR_LINK,
 	  N_("@E references EA @i %Di.\n"),
 	  PROMPT_CLEAR, 0, 0, 0, 0 },
+
+	/* Inode is badly corrupt (badness value = ) */
+	{ PR_2_INODE_TOOBAD,
+	  N_("@i %i is badly corrupt (badness value = %N).  "),
+	  PROMPT_CLEAR, PR_PREEN_OK },
 
 	/* Pass 3 errors */
 
@@ -2568,7 +2583,8 @@ static void print_problem(FILE *f, problem_t code, int answer, int fixed,
 	fputs("/>\n", f);
 }
 
-int fix_problem(e2fsck_t ctx, problem_t code, struct problem_context *pctx)
+int fix_problem_loc(e2fsck_t ctx, problem_t code, struct problem_context *pctx,
+		    int badness, const char *func, const int line)
 {
 	ext2_filsys fs = ctx->fs;
 	struct e2fsck_problem *ptr;
@@ -2578,6 +2594,10 @@ int fix_problem(e2fsck_t ctx, problem_t code, struct problem_context *pctx)
 	int		print_answer = 0;
 	int		suppress = 0;
 	int		fixed = 0;
+
+	/* ino is always set in pass1, where we will hit most badness */
+	if (pctx && pctx->ino != 0 && badness && code < PR_3_PASS_HEADER)
+		e2fsck_mark_inode_bad_loc(ctx, pctx, code, badness, func, line);
 
 	ptr = find_problem(code);
 	if (!ptr) {
@@ -2626,7 +2646,8 @@ int fix_problem(e2fsck_t ctx, problem_t code, struct problem_context *pctx)
 	if (ptr->flags & PR_LATCH_MASK &&
 	    (ldesc = find_latch(ptr->flags & PR_LATCH_MASK)) != NULL) {
 		if (ldesc->question && !(ldesc->flags & PRL_LATCHED)) {
-			ans = fix_problem(ctx, ldesc->question, pctx);
+			ans = fix_problem_loc(ctx, ldesc->question, pctx,
+					      0, func, line);
 			if (ans == 1)
 				ldesc->flags |= PRL_YES;
 			if (ans == 0)
@@ -2727,7 +2748,8 @@ int fix_problem(e2fsck_t ctx, problem_t code, struct problem_context *pctx)
 		fatal_error(ctx, 0);
 
 	if (ptr->flags & PR_AFTER_CODE)
-		answer = fix_problem(ctx, ptr->second_code, pctx);
+		answer = fix_problem_loc(ctx, ptr->second_code, pctx,
+					 0, func, line);
 
 	if (answer && (ptr->prompt != PROMPT_NONE) &&
 	    !(ptr->flags & PR_NOT_A_FIX)) {
@@ -2774,6 +2796,13 @@ void fatal_error(e2fsck_t ctx, const char *msg)
 }
 
 void preenhalt(e2fsck_t ctx)
+{
+	return;
+}
+
+void e2fsck_mark_inode_bad_loc(e2fsck_t ctx,
+			       struct problem_context *pctx, __u32 code,
+			       int count, const char *func, const int line)
 {
 	return;
 }
