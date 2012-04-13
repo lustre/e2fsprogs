@@ -909,6 +909,9 @@ struct problem_context {
 /* Inode completely corrupt */
 #define PR_2_INODE_TOOBAD		0x020049
 
+/* Directory dirdata flag set */
+#define PR_2_CLEAR_DIRDATA		0x02f000
+
 /*
  * Pass 3 errors
  */
