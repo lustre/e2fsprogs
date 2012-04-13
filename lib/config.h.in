@@ -52,6 +52,9 @@
 /* Define to 1 if you have the `asprintf' function. */
 #undef HAVE_ASPRINTF
 
+/* Define to 1 if you have the <attr/xattr.h> header file. */
+#undef HAVE_ATTR_XATTR_H
+
 /* Define to 1 if you have the `backtrace' function. */
 #undef HAVE_BACKTRACE
 
@@ -476,6 +479,9 @@
 
 /* Define to 1 if you have the <sys/wait.h> header file. */
 #undef HAVE_SYS_WAIT_H
+
+/* Define to 1 if you have the <sys/xattr.h> header file. */
+#undef HAVE_SYS_XATTR_H
 
 /* Define to 1 if you have the <termios.h> header file. */
 #undef HAVE_TERMIOS_H
