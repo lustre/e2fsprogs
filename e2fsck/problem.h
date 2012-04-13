@@ -621,6 +621,19 @@ struct problem_context {
 /* invalid inode creation time */
 #define PR_1_CRTIME_BAD			0x010089
 
+/* Inode has illegal EA value inode */
+#define PR_1_ATTR_VALUE_EA_INODE	0x01008A
+
+/* Invalid backpointer from EA inode to parent inode */
+#define PR_1_ATTR_INVAL_EA_INODE	0x01008B
+
+/* Parent inode has invalid EA entry. EA inode does not have
+ * EXT4_EA_INODE_FL flag. Delete EA entry? */
+#define PR_1_ATTR_NO_EA_INODE_FL	0x01008C
+
+/* EA inode for parent inode does not have EXT4_EA_INODE_FL flag */
+#define PR_1_ATTR_SET_EA_INODE_FL	0x01008D
+
 
 /*
  * Pass 1b errors
