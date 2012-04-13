@@ -78,7 +78,7 @@ struct dup_cluster {
  */
 struct dup_inode {
 	ext2_ino_t		dir;
-	int			num_dupblocks;
+	unsigned int		num_dupblocks;
 	struct ext2_inode_large	inode;
 	struct cluster_el	*cluster_list;
 };
@@ -237,6 +237,8 @@ void e2fsck_pass1_dupblocks(e2fsck_t ctx, char *block_buf)
 	init_resource_track(&rtrack, ctx->fs->io);
 	pass1b(ctx, block_buf);
 	print_resource_track(ctx, "Pass 1b", &rtrack, ctx->fs->io);
+	if (ctx->flags & E2F_FLAG_RESTART)
+		goto out;
 
 	init_resource_track(&rtrack, ctx->fs->io);
 	pass1c(ctx, block_buf);
@@ -245,6 +247,8 @@ void e2fsck_pass1_dupblocks(e2fsck_t ctx, char *block_buf)
 	init_resource_track(&rtrack, ctx->fs->io);
 	pass1d(ctx, block_buf);
 	print_resource_track(ctx, "Pass 1d", &rtrack, ctx->fs->io);
+	if (ctx->flags & E2F_FLAG_RESTART)
+		goto out;
 
 	if (ext2fs_has_feature_shared_blocks(ctx->fs->super) &&
 	    (ctx->options & E2F_OPT_UNSHARE_BLOCKS)) {
@@ -264,6 +268,7 @@ void e2fsck_pass1_dupblocks(e2fsck_t ctx, char *block_buf)
 		}
 	}
 
+out:
 	/*
 	 * Time to free all of the accumulated data structures that we
 	 * don't need anymore.
@@ -341,6 +346,14 @@ static void pass1b(e2fsck_t ctx, char *block_buf)
 		pb.last_blk = 0;
 		pb.pctx->blk = pb.pctx->blk2 = 0;
 
+		if (e2fsck_fix_bad_inode(ctx, &pctx)) {
+			struct dup_inode dp = { .inode = inode };
+
+			/* no restart if cleared before block processing */
+			delete_file(ctx, ino, &dp, block_buf);
+			continue;
+		}
+
 		if (ext2fs_inode_has_valid_blocks2(fs, EXT2_INODE(&inode)) ||
 		    (ino == EXT2_BAD_INO))
 			pctx.errcode = ext2fs_block_iterate3(fs, ino,
@@ -358,7 +371,7 @@ static void pass1b(e2fsck_t ctx, char *block_buf)
 			if (ino != EXT2_BAD_INO) {
 				op = pctx.blk == pctx.blk2 ?
 					PR_1B_DUP_BLOCK : PR_1B_DUP_RANGE;
-				fix_problem(ctx, op, pb.pctx);
+				fix_problem_notbad(ctx, op, pb.pctx);
 			}
 			end_problem_latch(ctx, PR_LATCH_DBLOCK);
 			if (ino >= EXT2_FIRST_INODE(fs->super) ||
@@ -367,6 +380,12 @@ static void pass1b(e2fsck_t ctx, char *block_buf)
 		}
 		if (pctx.errcode)
 			fix_problem(ctx, PR_1B_BLOCK_ITERATE, &pctx);
+
+		if (e2fsck_fix_bad_inode(ctx, &pctx)) {
+			e2fsck_clear_inode(ctx, ino, EXT2_INODE(&inode),
+					   E2F_FLAG_RESTART, "pass1b");
+			continue;
+		}
 	}
 	ext2fs_close_inode_scan(scan);
 	e2fsck_use_inode_shortcuts(ctx, 0);
@@ -401,7 +420,8 @@ static int process_pass1b_block(ext2_filsys fs EXT2FS_ATTR((unused)),
 				op = p->pctx->blk == p->pctx->blk2 ?
 						PR_1B_DUP_BLOCK :
 						PR_1B_DUP_RANGE;
-				fix_problem(ctx, op, p->pctx);
+				/* add badness once per indirect block */
+				fix_problem_bad(ctx, op, p->pctx, blockcnt < 0);
 			}
 			p->pctx->blk = *block_nr;
 		}
@@ -595,18 +615,24 @@ static void pass1d(e2fsck_t ctx, char *block_buf)
 			pctx.ino = shared[i];
 			pctx.dir = t->dir;
 			fix_problem(ctx, PR_1D_DUP_FILE_LIST, &pctx);
+			if (e2fsck_fix_bad_inode(ctx, &pctx)) {
+				e2fsck_clear_inode(ctx, pctx.ino, pctx.inode,
+						   E2F_FLAG_RESTART, "pass1d");
+				return;
+			}
 		}
 		/*
 		 * Even if the file shares blocks with itself, we still need to
 		 * clone the blocks.
 		 */
+		pctx.ino = ino;
 		if (file_ok && (meta_data ? shared_len+1 : shared_len) != 0) {
-			fix_problem(ctx, PR_1D_DUP_BLOCKS_DEALT, &pctx);
+			fix_problem_notbad(ctx, PR_1D_DUP_BLOCKS_DEALT, &pctx);
 			continue;
 		}
 		if (ctx->shared != E2F_SHARED_DELETE &&
 		    ((ctx->options & E2F_OPT_UNSHARE_BLOCKS) ||
-                    fix_problem(ctx, PR_1D_CLONE_QUESTION, &pctx))) {
+		     fix_problem_notbad(ctx, PR_1D_CLONE_QUESTION, &pctx))) {
 			pctx.errcode = clone_file(ctx, ino, p, block_buf);
 			if (pctx.errcode) {
 				fix_problem(ctx, PR_1D_CLONE_ERROR, &pctx);
@@ -721,8 +747,6 @@ static void delete_file(e2fsck_t ctx, ext2_ino_t ino,
 						     delete_file_block, &pb);
 	if (pctx.errcode)
 		fix_problem(ctx, PR_1B_BLOCK_ITERATE, &pctx);
-	if (ctx->inode_bad_map)
-		ext2fs_unmark_inode_bitmap2(ctx->inode_bad_map, ino);
 	if (ctx->inode_reg_map)
 		ext2fs_unmark_inode_bitmap2(ctx->inode_reg_map, ino);
 	ext2fs_unmark_inode_bitmap2(ctx->inode_dir_map, ino);
