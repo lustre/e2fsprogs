@@ -1,0 +1,16 @@
+Index: tests/test_one.in
+===================================================================
+--- tests/test_one.in.orig
++++ tests/test_one.in
+@@ -57,6 +57,11 @@ if [ -n "$SKIP_SLOW_TESTS" -a -f $test_d
+     exit 0
+ fi
+ 
++if [ -f $test_dir/always_skip ]; then
++    echo "$test_name: $test_description: skipped (always skip)"
++    exit 0
++fi
++
+ rm -f $test_name.ok $test_name.failed $test_name.log $test_name.slow
+ #echo -e -n "$test_name: $test_description:\r"
+ 
