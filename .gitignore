@@ -48,6 +48,7 @@ e2fsck/tst_problem
 e2fsck/tst_refcount
 e2fsck/tst_region
 e2fsprogs.spec
+e2fsprogs-RHEL-6.spec
 lib/blkid/blkid.h
 lib/blkid/blkid.pc
 lib/blkid/blkid_types.h
