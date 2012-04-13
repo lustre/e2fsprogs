@@ -30,7 +30,7 @@ struct ext2_ext_attr_entry {
 	__u8	e_name_len;	/* length of name */
 	__u8	e_name_index;	/* attribute name index */
 	__u16	e_value_offs;	/* offset in disk block of value */
-	__u32	e_value_block;	/* disk block attribute is stored on (n/i) */
+	__u32	e_value_inum;	/* inode in which the value is stored */
 	__u32	e_value_size;	/* size of attribute value */
 	__u32	e_hash;		/* hash value of name and value */
 #if 1
@@ -47,6 +47,9 @@ struct ext2_xattr_ibody_header {
 #define IHDR(inode) ((struct ext2_xattr_ibody_header *)((char *)inode + \
 		    EXT2_GOOD_OLD_INODE_SIZE + (inode)->i_extra_isize))
 #define ENTRY(ptr) ((struct ext2_ext_attr_entry *)(ptr))
+
+#define EXT4_XATTR_MIN_LARGE_EA_SIZE(b)	((b) >> 1)
+#define EXT4_XATTR_MAX_LARGE_EA_SIZE	(1024 * 1024)
 
 /* Name indexes */
 #define EXT2_ATTR_INDEX_USER			1
