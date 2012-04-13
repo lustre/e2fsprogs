@@ -47,7 +47,7 @@ STATIC_DEPLIBS= $(STATIC_LIBEXT2FS) $(DEPSTATIC_LIBSS) \
 
 .c.o:
 	$(E) "	CC $<"
-	$(Q) $(CC) -c $(ALL_CFLAGS) $< -o $@
+	$(Q) $(CC) -c $(ALL_CFLAGS) $(LUSTRE_INC) $< -o $@
 	$(Q) $(CHECK_CMD) $(ALL_CFLAGS) $<
 
 all:: $(PROGS) $(MANPAGES)

@@ -221,11 +221,13 @@ BSDLIB_INSTALL_DIR = $(root_libdir)
 @MAKEFILE_BSDLIB@
 @MAKEFILE_PROFILE@
 
+@LFSCK_CMT@LUSTRE_INC=-I @LUSTRE@/lustre/include -I @LUSTRE@/include -I @LUSTRE@/libcfs/include -Wall
+
 all:: ext2fs.pc
 
 .c.o:
 	$(E) "	CC $<"
-	$(Q) $(CC) $(ALL_CFLAGS) -c $< -o $@
+	$(Q) $(CC) $(ALL_CFLAGS) $(LUSTRE_INC) -c $< -o $@
 	$(Q) $(CHECK_CMD) $(ALL_CFLAGS) $<
 @PROFILE_CMT@	$(Q) $(CC) $(ALL_CFLAGS) -g -pg -o profiled/$*.o -c $<
 @ELF_CMT@	$(Q) $(CC) $(ALL_CFLAGS) -fPIC -o elfshared/$*.o -c $<
@@ -336,7 +338,7 @@ extent_cmds.c extent_cmds.h: $(top_srcdir)/debugfs/extent_cmds.ct
 
 debugfs.o: $(top_srcdir)/debugfs/debugfs.c
 	$(E) "	CC $<"
-	$(Q) $(CC) $(ALL_CFLAGS) -c $< -o $@
+	$(Q) $(CC) $(ALL_CFLAGS) $(LUSTRE_INC) -c $< -o $@
 
 extent_inode.o: $(top_srcdir)/debugfs/extent_inode.c
 	$(E) "	CC $<"
@@ -356,7 +358,7 @@ icheck.o: $(top_srcdir)/debugfs/icheck.c
 
 ls.o: $(top_srcdir)/debugfs/ls.c
 	$(E) "	CC $<"
-	$(Q) $(CC) $(ALL_CFLAGS) -c $< -o $@
+	$(Q) $(CC) $(ALL_CFLAGS) $(LUSTRE_INC) -c $< -o $@
 
 lsdel.o: $(top_srcdir)/debugfs/lsdel.c
 	$(E) "	CC $<"
