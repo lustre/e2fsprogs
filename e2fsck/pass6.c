@@ -763,10 +763,6 @@ static int lfsck_check_entry(ext2_ino_t dir, int entry,
 			     struct ext2_dir_entry *dirent, int offset,
 			     int blocksize, char *buf, void *priv_data)
 {
-<<<<<<< HEAD
-=======
-	struct ext2_dir_entry *dirent = (struct ext2_dir_entry *)de;
->>>>>>> 41a06f8... e2scan: a tool for fast namespace/inode scanning
 	int *dne = (int *)priv_data;
 	__u64 seq;
 	char *endptr;
