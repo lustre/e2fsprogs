@@ -49,6 +49,7 @@ e2fsck/tst_refcount
 e2fsck/tst_region
 e2fsprogs.spec
 e2fsprogs-RHEL-6.spec
+e2fsprogs-SUSE_LINUX-11.spec
 lib/blkid/blkid.h
 lib/blkid/blkid.pc
 lib/blkid/blkid_types.h
