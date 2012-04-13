@@ -1,0 +1,23 @@
+OUT=$test_name.log
+
+echo e2scan quick test: > $OUT
+
+echo unzip test image >> $OUT
+gunzip < $test_dir/image.gz > $TMPFILE
+
+echo "find files newer than 5:55:00 MDT Nov 24, 2007" >> $OUT
+$E2SCAN -l $TMPFILE -N "2007-11-24 05:55:00" -o $test_dir/list -C . 2>/dev/null
+
+echo compare found list with the correct one >> $OUT
+diff -u $test_dir/oklist $test_dir/list >> $OUT
+if [ $? -eq 0 ]; then
+	echo lists match, ok >> $OUT
+	echo "$test_name: $test_description: ok"
+	touch $test_name.ok
+else
+	echo list mismatch, test failed >> $OUT
+	diff -u $test_dir/list $test_dir/oklist >> $OUT
+	echo "$test_name: $test_description: failed"
+	diff -u $test_dir/oklist $test_dir/list > $test_name.failed
+fi
+rm -f $test_dir/list
