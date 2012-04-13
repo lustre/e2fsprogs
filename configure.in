@@ -822,6 +822,7 @@ else
   AC_CHECK_PROGS(BUILD_CC, gcc cc)
 fi
 AC_CHECK_HEADERS(m4_flatten([
+	attr/xattr.h
 	dirent.h
 	errno.h
 	execinfo.h
@@ -862,6 +863,7 @@ AC_CHECK_HEADERS(m4_flatten([
 	sys/types.h
 	sys/un.h
 	sys/wait.h
+	sys/xattr.h
 ]))
 AC_CHECK_HEADERS(sys/disk.h sys/mount.h,,,
 [[
