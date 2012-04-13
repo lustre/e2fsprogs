@@ -136,8 +136,9 @@ static errcode_t alloc_icount(ext2_filsys fs, int flags, ext2_icount_t *ret)
 						      &icount->multiple);
 		if (retval)
 			goto errout;
-	} else
+	} else {
 		icount->multiple = 0;
+	}
 
 	*ret = icount;
 	return 0;
@@ -500,6 +501,23 @@ static errcode_t get_inode_count(ext2_icount_t icount, ext2_ino_t ino,
 	}
 
 	*count = el->count;
+	return 0;
+}
+
+int ext2fs_icount_is_set(ext2_icount_t icount, ext2_ino_t ino)
+{
+	__u16 result;
+
+	if (ext2fs_test_inode_bitmap2(icount->single, ino))
+		return 1;
+	else if (icount->multiple) {
+		if (ext2fs_test_inode_bitmap2(icount->multiple, ino))
+			return 1;
+		return 0;
+	}
+	ext2fs_icount_fetch(icount, ino, &result);
+	if (result)
+		return 1;
 	return 0;
 }
 
