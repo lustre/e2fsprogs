@@ -24,6 +24,7 @@ extern char *optarg;
 #endif
 
 #include "debugfs.h"
+#include "ext2fs/lfsck.h"
 
 /*
  * list directory
@@ -32,6 +33,7 @@ extern char *optarg;
 #define LONG_OPT	0x0001
 #define DELETED_OPT	0x0002
 #define PARSE_OPT	0x0004
+#define DIRDATA_OPT	0x0008
 
 struct list_dir_struct {
 	FILE	*f;
@@ -41,6 +43,45 @@ struct list_dir_struct {
 
 static const char *monstr[] = { "Jan", "Feb", "Mar", "Apr", "May", "Jun",
 				"Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
+
+static void fid_be_to_cpu(struct lu_fid *dst, struct lu_fid *src)
+{
+	dst->f_seq = ext2fs_be64_to_cpu(src->f_seq);
+	dst->f_oid = ext2fs_be32_to_cpu(src->f_oid);
+	dst->f_ver = ext2fs_be32_to_cpu(src->f_ver);
+}
+
+static void list_dirdata(struct list_dir_struct *ls,
+			 struct ext2_dir_entry_2 *dirent)
+{
+	unsigned char	*len;
+	int		dlen;
+	__u8		dirdata_mask;
+
+	len = (unsigned char *)dirent->name + dirent->name_len + 1;
+
+	for (dirdata_mask = EXT2_FT_MASK + 1;
+	     dirdata_mask != 0; dirdata_mask <<= 1) {
+		if ((dirdata_mask & dirent->file_type) == 0)
+			continue;
+
+		dlen = *len;
+		++len;
+		fprintf(ls->f, " ");
+		if (dirdata_mask == EXT2_DIRENT_LUFID) {
+			struct lu_fid *fid = (struct lu_fid *)len;
+
+			fid_be_to_cpu(fid, fid);
+			fprintf(ls->f, DFID, PFID(fid));
+			len += dlen;
+		} else {
+			int i;
+
+			for (i = 0; i < dlen; ++i, ++len)
+				fprintf(ls->f, "%02x", *len);
+		}
+	}
+}
 
 static int list_dir_proc(ext2_ino_t dir EXT2FS_ATTR((unused)),
 			 int	entry,
@@ -106,7 +147,10 @@ static int list_dir_proc(ext2_ino_t dir EXT2FS_ATTR((unused)),
 			fprintf(ls->f, "%5d", inode.i_size);
 		else
 			fprintf(ls->f, "%5llu", EXT2_I_SIZE(&inode));
-		fprintf (ls->f, " %s %s\n", datestr, name);
+		fprintf(ls->f, " %s", datestr);
+		if ((ls->options & DIRDATA_OPT) != 0)
+			list_dirdata(ls, (struct ext2_dir_entry_2 *)dirent);
+		fprintf(ls->f, " %s\n", name);
 	} else {
 		sprintf(tmp, "%c%u%c (%d) %s   ", lbr, dirent->inode, rbr,
 			dirent->rec_len, name);
@@ -135,10 +179,13 @@ void do_list_dir(int argc, char *argv[])
 		return;
 
 	reset_getopt();
-	while ((c = getopt (argc, argv, "dlp")) != EOF) {
+	while ((c = getopt (argc, argv, "dDlp")) != EOF) {
 		switch (c) {
 		case 'l':
 			ls.options |= LONG_OPT;
+			break;
+		case 'D':
+			ls.options |= DIRDATA_OPT;
 			break;
 		case 'd':
 			ls.options |= DELETED_OPT;
