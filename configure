@@ -611,6 +611,7 @@ CYGWIN_CMT
 LINUX_CMT
 UNI_DIFF_OPTS
 SEM_INIT_LIB
+SQLITE3_LIB
 DB4VERSION
 SOCKET_LIB
 SIZEOF_LONG_LONG
@@ -679,6 +680,8 @@ FSCK_PROG
 DEFRAG_CMT
 RESIZER_CMT
 IMAGER_CMT
+E2SCAN_MAN
+E2SCAN_CMT
 DEBUGFS_CMT
 QUOTA_CMT
 DEPPROFILED_LIBQUOTA
@@ -820,6 +823,7 @@ enable_libuuid
 enable_libblkid
 enable_quota
 enable_debugfs
+enable_e2scan
 enable_imager
 enable_resizer
 enable_defrag
@@ -833,6 +837,7 @@ enable_rpath
 with_libiconv_prefix
 with_included_gettext
 with_libintl_prefix
+with_sqlite3
 with_multiarch
 '
       ac_precious_vars='build_alias
@@ -1476,6 +1481,7 @@ Optional Features:
   --disable-libblkid	  do not build private blkid library
   --enable-libquota	  enable quota support
   --disable-debugfs   	  disable support of debugfs program
+  --disable-e2scan   	  disable support of e2scan program
   --disable-imager   	  disable support of e2image program
   --disable-resizer   	  disable support of e2resize program
   --disable-defrag   	  disable support of e4defrag program
@@ -1501,6 +1507,7 @@ Optional Packages:
   --with-included-gettext use the GNU gettext library included here
   --with-libintl-prefix[=DIR]  search for libintl in DIR/include and DIR/lib
   --without-libintl-prefix     don't search for libintl in includedir and libdir
+  --with-sqlite3=DIR      location of sqlite3 library (default /usr/lib)
   --with-multiarch=ARCH specify the multiarch triplet
 
 Some influential environment variables:
@@ -5388,6 +5395,28 @@ $as_echo "Enabling debugfs support by default" >&6; }
 DEBUGFS_CMT=
 
 fi
+
+
+# Check whether --enable-e2scan was given.
+if test "${enable_e2scan+set}" = set; then :
+  enableval=$enable_e2scan; if test "$enableval" = "no"
+then
+	echo "Disabling e2scan support"
+	E2SCAN_CMT="#"
+	E2SCAN_MAN=.\"
+else
+	E2SCAN_CMT=
+	E2SCAN_MAN=
+	echo "Enabling e2scan support"
+fi
+
+else
+  echo "Enabling e2scan support by default"
+E2SCAN_CMT=
+E2SCAN_MAN=
+
+fi
+
 
 
 # Check whether --enable-imager was given.
@@ -10448,6 +10477,20 @@ fi
 
 done
 
+if test x"$E2SCAN_CMT" == x; then
+for ac_header in sqlite3.h
+do :
+  ac_fn_c_check_header_mongrel "$LINENO" "sqlite3.h" "ac_cv_header_sqlite3_h" "$ac_includes_default"
+if test "x$ac_cv_header_sqlite3_h" = x""yes; then :
+  cat >>confdefs.h <<_ACEOF
+#define HAVE_SQLITE3_H 1
+_ACEOF
+
+fi
+
+done
+
+fi
 for ac_func in vprintf
 do :
   ac_fn_c_check_func "$LINENO" "vprintf" "ac_cv_func_vprintf"
@@ -11401,6 +11444,125 @@ $as_echo "#define HAVE_DB4 1" >>confdefs.h
 fi
 
 
+
+# Check whether --with-sqlite3 was given.
+if test "${with_sqlite3+set}" = set; then :
+  withval=$with_sqlite3; SQLITE3_LIBS="-L$with_sqlite3"
+fi
+
+
+if test x"$E2SCAN_CMT" == x; then
+
+CFLAGS_OLD=$CFLAGS
+SQLITE3_LIB=''
+CFLAGS="$CFLAGS_OLD $SQLITE3_LIBS -static -pthread"
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for sqlite3_open in -lsqlite3" >&5
+$as_echo_n "checking for sqlite3_open in -lsqlite3... " >&6; }
+if test "${ac_cv_lib_sqlite3_sqlite3_open+set}" = set; then :
+  $as_echo_n "(cached) " >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-lsqlite3  $LIBS"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char sqlite3_open ();
+int
+main ()
+{
+return sqlite3_open ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"; then :
+  ac_cv_lib_sqlite3_sqlite3_open=yes
+else
+  ac_cv_lib_sqlite3_sqlite3_open=no
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_sqlite3_sqlite3_open" >&5
+$as_echo "$ac_cv_lib_sqlite3_sqlite3_open" >&6; }
+if test "x$ac_cv_lib_sqlite3_sqlite3_open" = x""yes; then :
+
+	SQLITE3_LIB="$SQLITE3_LIBS -static -pthread -lsqlite3"
+
+$as_echo "#define HAVE_SQLITE3 1" >>confdefs.h
+
+
+fi
+
+
+if test x"$SQLITE3_LIB" == x; then
+	{ $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: no static sqlite3 - looking for dynamic one" >&5
+$as_echo "$as_me: WARNING: no static sqlite3 - looking for dynamic one" >&2;}
+	CFLAGS="$CFLAGS_OLD $SQLITE3_LIBS -pthread"
+	{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for sqlite3_close in -lsqlite3" >&5
+$as_echo_n "checking for sqlite3_close in -lsqlite3... " >&6; }
+if test "${ac_cv_lib_sqlite3_sqlite3_close+set}" = set; then :
+  $as_echo_n "(cached) " >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-lsqlite3  $LIBS"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char sqlite3_close ();
+int
+main ()
+{
+return sqlite3_close ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"; then :
+  ac_cv_lib_sqlite3_sqlite3_close=yes
+else
+  ac_cv_lib_sqlite3_sqlite3_close=no
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_sqlite3_sqlite3_close" >&5
+$as_echo "$ac_cv_lib_sqlite3_sqlite3_close" >&6; }
+if test "x$ac_cv_lib_sqlite3_sqlite3_close" = x""yes; then :
+
+		SQLITE3_LIB="$SQLITE3_LIBS -pthread -lsqlite3"
+
+$as_echo "#define HAVE_SQLITE3 1" >>confdefs.h
+
+
+fi
+
+fi
+
+
+CFLAGS=$CFLAGS_OLD
+
+if test x"$SQLITE3_LIB" == x; then
+	{ $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: no sqlite3 - e2scan will not support database based scanning" >&5
+$as_echo "$as_me: WARNING: no sqlite3 - e2scan will not support database based scanning" >&2;}
+fi
+
+fi
+
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking for optreset" >&5
 $as_echo_n "checking for optreset... " >&6; }
 if test "${ac_cv_have_optreset+set}" = set; then :
@@ -11756,7 +11918,7 @@ for i in MCONFIG Makefile e2fsprogs.spec \
 	lib/ss/ss.pc lib/uuid/uuid.pc lib/et/com_err.pc \
 	lib/e2p/e2p.pc lib/blkid/blkid.pc lib/ext2fs/ext2fs.pc \
 	misc/Makefile ext2ed/Makefile e2fsck/Makefile \
-	debugfs/Makefile tests/Makefile tests/progs/Makefile \
+	debugfs/Makefile e2scan/Makefile tests/Makefile tests/progs/Makefile \
 	resize/Makefile doc/Makefile intl/Makefile \
 	intl/libgnuintl.h po/Makefile.in ; do
 	if test -d `dirname ${srcdir}/$i` ; then
