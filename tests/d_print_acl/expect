@@ -1,0 +1,13 @@
+Extended attributes:
+  system.posix_acl_access:
+    user::rwx
+    group::r-x
+    group:42:r-x
+    mask::r-x
+    other::r-x
+  system.posix_acl_default:
+    user::rwx
+    group::r-x
+    group:4:r-x
+    mask::r-x
+    other::r-x
