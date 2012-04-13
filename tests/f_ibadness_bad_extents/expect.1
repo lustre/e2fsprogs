@@ -1,0 +1,68 @@
+Pass 1: Checking inodes, blocks, and sizes
+e2fsck_pass1_run: increase inode 12 badness 0 to 1 for 1005c
+Inode 12 missing EXTENT_FL, but is in extents format
+Fix? yes
+
+e2fsck_pass1_run: increase inode 12 badness 1 to 2 for 10005
+Inode 12 is in use, but has dtime set.  Fix? yes
+
+e2fsck_pass1_run: increase inode 12 badness 2 to 3 for 20044
+e2fsck_pass1_run: increase inode 12 badness 3 to 4 for 10084
+e2fsck_pass1_run: increase inode 12 badness 4 to 5 for 10084
+e2fsck_pass1_run: increase inode 12 badness 5 to 7 for 10084
+check_ext_attr: increase inode 12 badness 7 to 8 for 2000e
+scan_extent_node: increase inode 12 badness 8 to 9 for 10058
+Inode 12 has an invalid extent
+	(logical block 0, invalid physical block 1231231222, len 492)
+Clear? yes
+
+scan_extent_node: increase inode 12 badness 9 to 10 for 10058
+Inode 12 has an invalid extent
+	(logical block 556, invalid physical block 4294967295, len 45)
+Clear? yes
+
+scan_extent_node: increase inode 12 badness 10 to 11 for 10058
+Inode 12 has an invalid extent
+	(logical block 666, invalid physical block 4294967295, len 5)
+Clear? yes
+
+scan_extent_node: increase inode 12 badness 11 to 12 for 10058
+Inode 12 has an invalid extent
+	(logical block 700, invalid physical block 4294967295, len 45)
+Clear? yes
+
+check_blocks: increase inode 12 badness 12 to 13 for 1000d
+Inode 12, i_blocks is 984, should be 0.  Fix? yes
+
+Inode 12 is badly corrupt (badness value = 13).  Clear? yes
+
+Restarting e2fsck from the beginning...
+Pass 1: Checking inodes, blocks, and sizes
+Pass 2: Checking directory structure
+Entry 'testfile' in / (2) has deleted/unused inode 12.  Clear? yes
+
+Pass 3: Checking directory connectivity
+Pass 4: Checking reference counts
+Pass 5: Checking group summary information
+Block bitmap differences:  -(6145--6636)
+Fix? yes
+
+Free blocks count wrong for group #0 (6525, counted=7017).
+Fix? yes
+
+Free blocks count wrong (14584, counted=15076).
+Fix? yes
+
+Inode bitmap differences:  -12
+Fix? yes
+
+Free inodes count wrong for group #0 (1012, counted=1013).
+Fix? yes
+
+Free inodes count wrong (2036, counted=2037).
+Fix? yes
+
+
+test_filesys: ***** FILE SYSTEM WAS MODIFIED *****
+test_filesys: 11/2048 files (0.0% non-contiguous), 1308/16384 blocks
+Exit status is 1
