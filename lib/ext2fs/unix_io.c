@@ -15,6 +15,9 @@
  * %End-Header%
  */
 
+#define _XOPEN_SOURCE 600
+#define _DARWIN_C_SOURCE
+#define _FILE_OFFSET_BITS 64
 #define _LARGEFILE_SOURCE
 #define _LARGEFILE64_SOURCE
 #ifndef _GNU_SOURCE
@@ -35,6 +38,9 @@
 #ifdef __linux__
 #include <sys/utsname.h>
 #endif
+#if HAVE_SYS_TYPES_H
+#include <sys/types.h>
+#endif
 #ifdef HAVE_SYS_IOCTL_H
 #include <sys/ioctl.h>
 #endif
@@ -43,9 +49,6 @@
 #endif
 #if HAVE_SYS_STAT_H
 #include <sys/stat.h>
-#endif
-#if HAVE_SYS_TYPES_H
-#include <sys/types.h>
 #endif
 #if HAVE_SYS_RESOURCE_H
 #include <sys/resource.h>
@@ -119,6 +122,8 @@ static errcode_t unix_write_blk64(io_channel channel, unsigned long long block,
 				int count, const void *data);
 static errcode_t unix_discard(io_channel channel, unsigned long long block,
 			      unsigned long long count);
+static errcode_t unix_readahead(io_channel channel, unsigned long block,
+				int count);
 
 static struct struct_io_manager struct_unix_manager = {
 	EXT2_ET_MAGIC_IO_MANAGER,
@@ -135,6 +140,7 @@ static struct struct_io_manager struct_unix_manager = {
 	unix_read_blk64,
 	unix_write_blk64,
 	unix_discard,
+	unix_readahead,
 };
 
 io_manager unix_io_manager = &struct_unix_manager;
@@ -817,6 +823,20 @@ static errcode_t unix_write_blk64(io_channel channel, unsigned long long block,
 	}
 	return retval;
 #endif /* NO_IO_CACHE */
+}
+
+static errcode_t unix_readahead(io_channel channel, unsigned long block,
+				int count)
+{
+#ifdef POSIX_FADV_WILLNEED
+	struct unix_private_data *data;
+
+	data = (struct unix_private_data *)channel->private_data;
+	posix_fadvise(data->dev, (ext2_loff_t)block * channel->block_size,
+		      (ext2_loff_t)count * channel->block_size,
+		      POSIX_FADV_WILLNEED);
+#endif
+	return 0;
 }
 
 static errcode_t unix_write_blk(io_channel channel, unsigned long block,
