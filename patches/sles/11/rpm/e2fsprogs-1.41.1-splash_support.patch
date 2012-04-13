@@ -125,16 +125,15 @@ Index: e2fsprogs-1.42.3/e2fsck/Makefile.in
 ===================================================================
 --- e2fsprogs-1.42.3/e2fsck/Makefile.in
 +++ e2fsprogs-1.42.3/e2fsck/Makefile.in
-@@ -77,7 +77,7 @@ COMPILE_ET=$(top_builddir)/lib/et/compile_et --build-tree
+@@ -77,6 +77,6 @@ COMPILE_ET=$(top_builddir)/lib/et/compile_et --build-tree
  OBJS= crc32.o dict.o unix.o e2fsck.o super.o pass1.o pass1b.o pass2.o \
  	pass3.o pass4.o pass5.o pass6.o journal.o badblocks.o util.o dirinfo.o \
  	dx_dirinfo.o ehandler.o problem.o message.o quota.o recovery.o \
 -	region.o revoke.o ea_refcount.o rehash.o profile.o prof_err.o \
 +	region.o revoke.o ea_refcount.o rehash.o profile.o prof_err.o splash.o \
  	logfile.o sigcatcher.o $(MTRACE_OBJ)
- @LFSCK_CMT@OBJS += lfsck_common.o
  
-@@ -90,7 +90,7 @@ PROFILED_OBJS= profiled/dict.o profiled/unix.o profiled/e2fsck.o \
+@@ -90,6 +90,6 @@ PROFILED_OBJS= profiled/dict.o profiled/unix.o profiled/e2fsck.o \
  	profiled/dirinfo.o profiled/dx_dirinfo.o profiled/ehandler.o \
  	profiled/message.o profiled/problem.o profiled/quota.o \
  	profiled/recovery.o profiled/region.o profiled/revoke.o \
@@ -142,7 +141,6 @@ Index: e2fsprogs-1.42.3/e2fsck/Makefile.in
 +	profiled/ea_refcount.o profiled/rehash.o profiled/profile.o splash.o \
  	profiled/crc32.o profiled/prof_err.o profiled/logfile.o \
  	profiled/sigcatcher.o
- @LFSCK_CMT@PROFILED_OBJS += profiled/lfsck_common.o
 @@ -122,6 +122,7 @@ SRCS= $(srcdir)/e2fsck.c \
  	$(srcdir)/rehash.c \
  	$(srcdir)/region.c \

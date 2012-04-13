@@ -1,7 +1,7 @@
 #!/bin/sh
 
 MAN8="debugfs badblocks e2fsck mke2fs dumpe2fs mklost+found \
-	fsck tune2fs"
+	fsck tune2fs e2scan"
 MAN1="lsattr chattr"
 
 for i in $MAN8
