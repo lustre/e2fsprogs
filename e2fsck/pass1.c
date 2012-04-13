@@ -2119,7 +2119,7 @@ static int handle_htree(e2fsck_t ctx, struct problem_context *pctx,
 	}
 
 	/* XXX should check that beginning matches a directory */
-	root = (struct ext2_dx_root_info *) (block_buf + 24);
+	root = get_ext2_dx_root_info(fs, block_buf);
 
 	if ((root->reserved_zero || root->info_length < 8) &&
 	    fix_problem(ctx, PR_1_HTREE_BADROOT, pctx))

@@ -335,13 +335,80 @@ static EXT2_QSORT_TYPE special_dir_block_cmp(const void *a, const void *b)
 	return (int) (db_a->blockcnt - db_b->blockcnt);
 }
 
+void ext2_fix_dirent_dirdata(struct ext2_dir_entry_2 *de)
+{
+	int i = 0, dirdatalen, rlen;
+	__u8 flags = 0, new_flag = 0;
+	__u8 de_flags = de->file_type & ~EXT2_FT_MASK;
 
+	while (i < 4) {
+		flags = new_flag | (1 << i) << 4;
+
+		if ((de_flags & flags) == flags) {
+			dirdatalen = ext2_get_dirent_dirdata_size(de, flags);
+			rlen = __EXT2_DIR_REC_LEN(de->name_len + dirdatalen);
+
+			if (rlen > de->rec_len)
+				break;
+
+			new_flag |= flags;
+		}
+		i++;
+	}
+
+	de->file_type = (de->file_type & EXT2_FT_MASK) | new_flag;
+}
+
+
+/*
+ * check for dirent data in ext3 dirent.
+ * return 0 if dirent data is ok.
+ * return 1 if dirent data does not exist.
+ * return 2 if dirent was modified due to error.
+ */
+int e2fsck_check_dirent_data(e2fsck_t ctx, struct ext2_dir_entry_2 *de,
+			     unsigned int offset, struct problem_context *pctx)
+{
+	if (!(ctx->fs->super->s_feature_incompat &
+			EXT4_FEATURE_INCOMPAT_DIRDATA)) {
+		if (de->file_type & ~EXT2_FT_MASK) {
+			/* clear dirent extra data flags. */
+			if (fix_problem(ctx, PR_2_CLEAR_DIRDATA, pctx)) {
+				de->file_type &= EXT2_FT_MASK;
+				return 2;
+			}
+		}
+		return 1;
+	}
+	if (de->file_type & ~EXT2_FT_MASK) {
+
+		if (de->rec_len >= EXT2_DIR_REC_LEN(de) ||
+		   (de->rec_len + offset == EXT2_BLOCK_SIZE(ctx->fs->super))) {
+			if (ext2_get_dirent_dirdata_size(de, EXT2_DIRENT_LUFID) ==
+			    EXT2_DIRENT_LUFID_SIZE)
+				return 0;
+		}
+		/* just clear dirent data flags for now, we should fix FID data
+		 * in lustre specific pass.
+		 */
+		if (fix_problem(ctx, PR_2_CLEAR_DIRDATA, pctx)) {
+			ext2_fix_dirent_dirdata(de);
+			if (ext2_get_dirent_dirdata_size(de, EXT2_DIRENT_LUFID) !=
+			    EXT2_DIRENT_LUFID_SIZE) {
+				de->file_type &= ~EXT2_DIRENT_LUFID;
+			}
+
+			return 2;
+		}
+	}
+	return 1;
+}
 /*
  * Make sure the first entry in the directory is '.', and that the
  * directory entry is sane.
  */
 static int check_dot(e2fsck_t ctx,
-		     struct ext2_dir_entry *dirent,
+		     struct ext2_dir_entry *dirent, unsigned int offset,
 		     ext2_ino_t ino, struct problem_context *pctx)
 {
 	struct ext2_dir_entry *nextdir;
@@ -349,6 +416,7 @@ static int check_dot(e2fsck_t ctx,
 	int	status = 0;
 	int	created = 0;
 	int	problem = 0;
+	int     dir_data_error;
 
 	if (!dirent->inode)
 		problem = PR_2_MISSING_DOT;
@@ -358,10 +426,14 @@ static int check_dot(e2fsck_t ctx,
 	else if (dirent->name[1] != '\0')
 		problem = PR_2_DOT_NULL_TERM;
 
+	dir_data_error = e2fsck_check_dirent_data(ctx,
+				(struct ext2_dir_entry_2 *)dirent,
+				offset, pctx);
+
 	(void) ext2fs_get_rec_len(ctx->fs, dirent, &rec_len);
 	if (problem) {
 		if (fix_problem(ctx, problem, pctx)) {
-			if (rec_len < 12)
+			if (rec_len < 12 && dir_data_error)
 				rec_len = dirent->rec_len = 12;
 			dirent->inode = ino;
 			dirent->name_len = 1;
@@ -377,7 +449,7 @@ static int check_dot(e2fsck_t ctx,
 			status = 1;
 		}
 	}
-	if (rec_len > 12) {
+	if (rec_len > 12 && dir_data_error) {
 		new_len = rec_len - 12;
 		if (new_len > 12) {
 			if (created ||
@@ -402,11 +474,12 @@ static int check_dot(e2fsck_t ctx,
  * here; this gets done in pass 3.
  */
 static int check_dotdot(e2fsck_t ctx,
-			struct ext2_dir_entry *dirent,
+			struct ext2_dir_entry *dirent, unsigned int offset,
 			ext2_ino_t ino, struct problem_context *pctx)
 {
 	int		problem = 0;
 	unsigned int	rec_len;
+	int     	dir_data_error;
 
 	if (!dirent->inode)
 		problem = PR_2_MISSING_DOT_DOT;
@@ -417,10 +490,14 @@ static int check_dotdot(e2fsck_t ctx,
 	else if (dirent->name[2] != '\0')
 		problem = PR_2_DOT_DOT_NULL_TERM;
 
+	dir_data_error = e2fsck_check_dirent_data(ctx,
+				(struct ext2_dir_entry_2 *)dirent,
+				offset, pctx);
+
 	(void) ext2fs_get_rec_len(ctx->fs, dirent, &rec_len);
 	if (problem) {
 		if (fix_problem(ctx, problem, pctx)) {
-			if (rec_len < 12)
+			if (rec_len < 12 && dir_data_error)
 				dirent->rec_len = 12;
 			/*
 			 * Note: we don't have the parent inode just
@@ -482,6 +559,12 @@ static _INLINE_ int check_filetype(e2fsck_t ctx,
 	int	should_be = EXT2_FT_UNKNOWN;
 	__u16	result;
 	struct ext2_inode	inode;
+	__u8    dirdata = 0;
+
+	if (ctx->fs->super->s_feature_incompat & EXT4_FEATURE_INCOMPAT_DIRDATA) {
+		dirdata = filetype & ~EXT2_FT_MASK;
+		filetype = filetype & EXT2_FT_MASK;
+	}
 
 	if (!(ctx->fs->super->s_feature_incompat &
 	      EXT2_FEATURE_INCOMPAT_FILETYPE)) {
@@ -516,7 +599,7 @@ static _INLINE_ int check_filetype(e2fsck_t ctx,
 			pctx) == 0)
 		return 0;
 
-	dirent->name_len = (dirent->name_len & 0xFF) | should_be << 8;
+	dirent->name_len = ((dirent->name_len & 0xFF) | (dirdata | should_be) << 8);
 	return 1;
 }
 
@@ -538,7 +621,7 @@ static void parse_int_node(ext2_filsys fs,
 	ext2_dirhash_t	hash = 0, prev_hash;
 
 	if (db->blockcnt == 0) {
-		root = (struct ext2_dx_root_info *) (block_buf + 24);
+		root = get_ext2_dx_root_info(fs, block_buf);
 
 #ifdef DX_DEBUG
 		printf("Root node dump:\n");
@@ -549,7 +632,7 @@ static void parse_int_node(ext2_filsys fs,
 		printf("\t Flags: %d\n", root->unused_flags);
 #endif
 
-		ent = (struct ext2_dx_entry *) (block_buf + 24 + root->info_length);
+		ent = (struct ext2_dx_entry *) ((char *) root + root->info_length);
 	} else {
 		ent = (struct ext2_dx_entry *) (block_buf+8);
 	}
@@ -812,7 +895,7 @@ static int check_dir_block(ext2_filsys fs,
 		(void) ext2fs_get_rec_len(fs, dirent, &rec_len);
 		limit = (struct ext2_dx_countlimit *) (buf+8);
 		if (db->blockcnt == 0) {
-			root = (struct ext2_dx_root_info *) (buf + 24);
+			root = get_ext2_dx_root_info(fs, buf);
 			dx_db->type = DX_DIRBLOCK_ROOT;
 			dx_db->flags |= DX_FLAG_FIRST | DX_FLAG_LAST;
 			if ((root->reserved_zero ||
@@ -863,10 +946,10 @@ out_htree:
 		}
 
 		if (dot_state == 0) {
-			if (check_dot(ctx, dirent, ino, &cd->pctx))
+			if (check_dot(ctx, dirent, offset, ino, &cd->pctx))
 				dir_modified++;
 		} else if (dot_state == 1) {
-			ret = check_dotdot(ctx, dirent, ino, &cd->pctx);
+			ret = check_dotdot(ctx, dirent, offset, ino, &cd->pctx);
 			if (ret < 0)
 				goto abort_free_dict;
 			if (ret)
@@ -881,6 +964,11 @@ out_htree:
 		}
 		if (!dirent->inode)
 			goto next;
+
+		ret = e2fsck_check_dirent_data(ctx, (struct ext2_dir_entry_2 *)dirent,
+					 offset, &cd->pctx);
+		if (ret == 2)
+			dir_modified++;
 
 		/*
 		 * Make sure the inode listed is a legal one.
