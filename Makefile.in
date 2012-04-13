@@ -42,7 +42,10 @@ all-progs-recursive all-libs-recursive: subs
 e2fsprogs.spec: $(DEP_SUBSTITUTE) e2fsprogs.spec.in
 	cd $(top_builddir); CONFIG_FILES=./e2fsprogs.spec ./config.status
 
-rpm: e2fsprogs.spec
+e2fsprogs-RHEL-6.spec: $(DEP_SUBSTITUTE) e2fsprogs-RHEL-6.spec.in
+	cd $(top_builddir); CONFIG_FILES=./e2fsprogs-RHEL-6.spec ./config.status
+
+rpm: e2fsprogs.spec e2fsprogs-RHEL-6.spec
 	sh contrib/build-rpm
 
 docs:
