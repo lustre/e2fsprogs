@@ -34,9 +34,11 @@ LIBS= $(LIBEXT2FS) $(LIBE2P) $(LIBSS) $(LIBCOM_ERR) $(LIBBLKID) \
 DEPLIBS= $(LIBEXT2FS) $(LIBE2P) $(DEPLIBSS) $(DEPLIBCOM_ERR) \
 	$(DEPLIBBLKID) $(DEPLIBUUID)
 
+@LFSCK_CMT@LUSTRE_INC=-I @LUSTRE@/lustre/include -I @LUSTRE@/include -I @LUSTRE@/libcfs/include -Wall
+
 .c.o:
 	$(E) "	CC $<"
-	$(Q) $(CC) -c $(ALL_CFLAGS) $< -o $@
+	$(Q) $(CC) -c $(ALL_CFLAGS) $(LUSTRE_INC) $< -o $@
 
 all:: $(PROGS) $(MANPAGES)
 

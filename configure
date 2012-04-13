@@ -639,6 +639,7 @@ CYGWIN_CMT
 LINUX_CMT
 UNI_DIFF_OPTS
 SEM_INIT_LIB
+DB4VERSION
 SOCKET_LIB
 SIZEOF_LONG_LONG
 SIZEOF_LONG
@@ -740,6 +741,11 @@ PROFILE_CMT
 BSDLIB_CMT
 ELF_CMT
 HTREE_CMT
+WITH_LUSTRE
+LUSTRE
+ENABLE_LFSCK
+LFSCK_MAN
+LFSCK_CMT
 Q
 ES
 E
@@ -829,6 +835,8 @@ enable_relative_symlinks
 enable_symlink_relative_symlinks
 enable_symlink_build
 enable_verbose_makecmds
+enable_lfsck
+with_lustre
 enable_compression
 enable_htree
 enable_elf_shlibs
@@ -1484,6 +1492,7 @@ Optional Features:
 
   --enable-symlink-build  use symlinks while building instead of hard links
   --enable-verbose-makecmds enable verbose make command output
+  --disable-lfsck     	  disable EXPERIMENTAL Lustre lfsck support
   --enable-compression	  enable EXPERIMENTAL compression support
   --enable-htree      	  enable EXPERIMENTAL htree directory support
   --enable-elf-shlibs	  select ELF shared libraries
@@ -1515,6 +1524,7 @@ Optional Packages:
   --with-ccopts           no longer supported, use CFLAGS= instead
   --with-ldopts           no longer supported, use LDFLAGS= instead
   --with-root-prefix=PREFIX override prefix variable for files to be placed in the root
+  --with-lustre=LUSTRE path to Lustre sources for lfsck (default=/usr for RPM)
   --with-gnu-ld           assume the C compiler uses GNU ld default=no
   --with-libiconv-prefix[=DIR]  search for libiconv in DIR/include and DIR/lib
   --without-libiconv-prefix     don't search for libiconv in includedir and libdir
@@ -4522,6 +4532,157 @@ fi
 
 
 
+# Check whether --enable-lfsck was given.
+if test "${enable_lfsck+set}" = set; then :
+  enableval=$enable_lfsck; if test "$enableval" = "no"
+then
+	LFSCK_CMT="#"
+	LFSCK_MAN='.\"'
+	ENABLE_LFSCK="--disable-lfsck"
+	echo "Disabling Lustre lfsck support"
+else
+	LFSCK_CMT=
+	LFSCK_MAN=
+	ENABLE_LFSCK="--enable-lfsck"
+
+$as_echo "#define HAVE_LFSCK 1" >>confdefs.h
+
+	echo "Enabling Lustre lfsck support"
+fi
+
+else
+  LFSCK_CMT=
+LFSCK_MAN=
+ENABLE_LFSCK=
+
+$as_echo "#define HAVE_LFSCK 1" >>confdefs.h
+
+echo "Enabling Lustre lfsck support by default"
+
+fi
+
+
+
+
+
+# Check whether --with-lustre was given.
+if test "${with_lustre+set}" = set; then :
+  withval=$with_lustre; { $as_echo "$as_me:${as_lineno-$LINENO}: result: LUSTRE is in $withval" >&5
+$as_echo "LUSTRE is in $withval" >&6; }
+	LUSTRE="$withval"
+	WITH_LUSTRE="--with-lustre=$withval"
+else
+  LUSTRE="/usr"
+	WITH_LUSTRE=
+
+fi
+
+
+if test "x$enable_lfsck" != "xno"; then :
+
+	as_ac_File=`$as_echo "ac_cv_file_$LUSTRE/include/lustre/lustreapi.h" | $as_tr_sh`
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $LUSTRE/include/lustre/lustreapi.h" >&5
+$as_echo_n "checking for $LUSTRE/include/lustre/lustreapi.h... " >&6; }
+if { as_var=$as_ac_File; eval "test \"\${$as_var+set}\" = set"; }; then :
+  $as_echo_n "(cached) " >&6
+else
+  test "$cross_compiling" = yes &&
+  as_fn_error $? "cannot check for file existence when cross compiling" "$LINENO" 5
+if test -r "$LUSTRE/include/lustre/lustreapi.h"; then
+  eval "$as_ac_File=yes"
+else
+  eval "$as_ac_File=no"
+fi
+fi
+eval ac_res=\$$as_ac_File
+	       { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_res" >&5
+$as_echo "$ac_res" >&6; }
+eval as_val=\$$as_ac_File
+   if test "x$as_val" = x""yes; then :
+
+$as_echo "#define HAVE_LUSTRE_LUSTREAPI_H 1" >>confdefs.h
+
+else
+  as_ac_File=`$as_echo "ac_cv_file_$LUSTRE/lustre/include/lustre/lustreapi.h" | $as_tr_sh`
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $LUSTRE/lustre/include/lustre/lustreapi.h" >&5
+$as_echo_n "checking for $LUSTRE/lustre/include/lustre/lustreapi.h... " >&6; }
+if { as_var=$as_ac_File; eval "test \"\${$as_var+set}\" = set"; }; then :
+  $as_echo_n "(cached) " >&6
+else
+  test "$cross_compiling" = yes &&
+  as_fn_error $? "cannot check for file existence when cross compiling" "$LINENO" 5
+if test -r "$LUSTRE/lustre/include/lustre/lustreapi.h"; then
+  eval "$as_ac_File=yes"
+else
+  eval "$as_ac_File=no"
+fi
+fi
+eval ac_res=\$$as_ac_File
+	       { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_res" >&5
+$as_echo "$ac_res" >&6; }
+eval as_val=\$$as_ac_File
+   if test "x$as_val" = x""yes; then :
+
+$as_echo "#define HAVE_LUSTRE_LUSTREAPI_H 1" >>confdefs.h
+
+else
+	as_ac_File=`$as_echo "ac_cv_file_$LUSTRE/include/lustre/liblustreapi.h" | $as_tr_sh`
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $LUSTRE/include/lustre/liblustreapi.h" >&5
+$as_echo_n "checking for $LUSTRE/include/lustre/liblustreapi.h... " >&6; }
+if { as_var=$as_ac_File; eval "test \"\${$as_var+set}\" = set"; }; then :
+  $as_echo_n "(cached) " >&6
+else
+  test "$cross_compiling" = yes &&
+  as_fn_error $? "cannot check for file existence when cross compiling" "$LINENO" 5
+if test -r "$LUSTRE/include/lustre/liblustreapi.h"; then
+  eval "$as_ac_File=yes"
+else
+  eval "$as_ac_File=no"
+fi
+fi
+eval ac_res=\$$as_ac_File
+	       { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_res" >&5
+$as_echo "$ac_res" >&6; }
+eval as_val=\$$as_ac_File
+   if test "x$as_val" = x""yes; then :
+
+$as_echo "#define HAVE_LUSTRE_LIBLUSTREAPI_H 1" >>confdefs.h
+
+else
+  as_ac_File=`$as_echo "ac_cv_file_$LUSTRE/lustre/include/lustre/liblustreapi.h" | $as_tr_sh`
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $LUSTRE/lustre/include/lustre/liblustreapi.h" >&5
+$as_echo_n "checking for $LUSTRE/lustre/include/lustre/liblustreapi.h... " >&6; }
+if { as_var=$as_ac_File; eval "test \"\${$as_var+set}\" = set"; }; then :
+  $as_echo_n "(cached) " >&6
+else
+  test "$cross_compiling" = yes &&
+  as_fn_error $? "cannot check for file existence when cross compiling" "$LINENO" 5
+if test -r "$LUSTRE/lustre/include/lustre/liblustreapi.h"; then
+  eval "$as_ac_File=yes"
+else
+  eval "$as_ac_File=no"
+fi
+fi
+eval ac_res=\$$as_ac_File
+	       { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_res" >&5
+$as_echo "$ac_res" >&6; }
+eval as_val=\$$as_ac_File
+   if test "x$as_val" = x""yes; then :
+
+$as_echo "#define HAVE_LUSTRE_LIBLUSTREAPI_H 1" >>confdefs.h
+
+else
+  as_fn_error $? "No lustre includes found." "$LINENO" 5
+fi
+
+fi
+
+fi
+
+fi
+
+
+fi
 # Check whether --enable-compression was given.
 if test "${enable_compression+set}" = set; then :
   enableval=$enable_compression; if test "$enableval" = "no"
@@ -10389,6 +10550,18 @@ fi
 
 done
 
+for ac_header in db.h
+do :
+  ac_fn_c_check_header_mongrel "$LINENO" "db.h" "ac_cv_header_db_h" "$ac_includes_default"
+if test "x$ac_cv_header_db_h" = x""yes; then :
+  cat >>confdefs.h <<_ACEOF
+#define HAVE_DB_H 1
+_ACEOF
+
+fi
+
+done
+
 for ac_func in vprintf
 do :
   ac_fn_c_check_func "$LINENO" "vprintf" "ac_cv_func_vprintf"
@@ -11025,6 +11198,315 @@ fi
 $as_echo "$ac_cv_lib_socket_socket" >&6; }
 if test "x$ac_cv_lib_socket_socket" = xyes; then :
   SOCKET_LIB=-lsocket
+fi
+
+
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for db_env_create in -ldb-4.1" >&5
+$as_echo_n "checking for db_env_create in -ldb-4.1... " >&6; }
+if test "${ac_cv_lib_db_4_1_db_env_create+set}" = set; then :
+  $as_echo_n "(cached) " >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-ldb-4.1  $LIBS"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char db_env_create ();
+int
+main ()
+{
+return db_env_create ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"; then :
+  ac_cv_lib_db_4_1_db_env_create=yes
+else
+  ac_cv_lib_db_4_1_db_env_create=no
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_db_4_1_db_env_create" >&5
+$as_echo "$ac_cv_lib_db_4_1_db_env_create" >&6; }
+if test "x$ac_cv_lib_db_4_1_db_env_create" = x""yes; then :
+  DB4VERSION=4.1
+
+$as_echo "#define HAVE_DB4 1" >>confdefs.h
+
+
+fi
+
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for db_env_create in -ldb-4.2" >&5
+$as_echo_n "checking for db_env_create in -ldb-4.2... " >&6; }
+if test "${ac_cv_lib_db_4_2_db_env_create+set}" = set; then :
+  $as_echo_n "(cached) " >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-ldb-4.2  $LIBS"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char db_env_create ();
+int
+main ()
+{
+return db_env_create ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"; then :
+  ac_cv_lib_db_4_2_db_env_create=yes
+else
+  ac_cv_lib_db_4_2_db_env_create=no
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_db_4_2_db_env_create" >&5
+$as_echo "$ac_cv_lib_db_4_2_db_env_create" >&6; }
+if test "x$ac_cv_lib_db_4_2_db_env_create" = x""yes; then :
+  DB4VERSION=4.2
+
+$as_echo "#define HAVE_DB4 1" >>confdefs.h
+
+
+fi
+
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for db_env_create in -ldb-4.3" >&5
+$as_echo_n "checking for db_env_create in -ldb-4.3... " >&6; }
+if test "${ac_cv_lib_db_4_3_db_env_create+set}" = set; then :
+  $as_echo_n "(cached) " >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-ldb-4.3  $LIBS"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char db_env_create ();
+int
+main ()
+{
+return db_env_create ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"; then :
+  ac_cv_lib_db_4_3_db_env_create=yes
+else
+  ac_cv_lib_db_4_3_db_env_create=no
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_db_4_3_db_env_create" >&5
+$as_echo "$ac_cv_lib_db_4_3_db_env_create" >&6; }
+if test "x$ac_cv_lib_db_4_3_db_env_create" = x""yes; then :
+  DB4VERSION=4.3
+
+$as_echo "#define HAVE_DB4 1" >>confdefs.h
+
+
+fi
+
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for db_env_create in -ldb-4.5" >&5
+$as_echo_n "checking for db_env_create in -ldb-4.5... " >&6; }
+if test "${ac_cv_lib_db_4_5_db_env_create+set}" = set; then :
+  $as_echo_n "(cached) " >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-ldb-4.5  $LIBS"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char db_env_create ();
+int
+main ()
+{
+return db_env_create ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"; then :
+  ac_cv_lib_db_4_5_db_env_create=yes
+else
+  ac_cv_lib_db_4_5_db_env_create=no
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_db_4_5_db_env_create" >&5
+$as_echo "$ac_cv_lib_db_4_5_db_env_create" >&6; }
+if test "x$ac_cv_lib_db_4_5_db_env_create" = x""yes; then :
+  DB4VERSION=4.5
+
+$as_echo "#define HAVE_DB4 1" >>confdefs.h
+
+
+fi
+
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for db_env_create in -ldb-4.6" >&5
+$as_echo_n "checking for db_env_create in -ldb-4.6... " >&6; }
+if test "${ac_cv_lib_db_4_6_db_env_create+set}" = set; then :
+  $as_echo_n "(cached) " >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-ldb-4.6  $LIBS"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char db_env_create ();
+int
+main ()
+{
+return db_env_create ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"; then :
+  ac_cv_lib_db_4_6_db_env_create=yes
+else
+  ac_cv_lib_db_4_6_db_env_create=no
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_db_4_6_db_env_create" >&5
+$as_echo "$ac_cv_lib_db_4_6_db_env_create" >&6; }
+if test "x$ac_cv_lib_db_4_6_db_env_create" = x""yes; then :
+  DB4VERSION=4.6
+
+$as_echo "#define HAVE_DB4 1" >>confdefs.h
+
+
+fi
+
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for db_env_create in -ldb-4.7" >&5
+$as_echo_n "checking for db_env_create in -ldb-4.7... " >&6; }
+if test "${ac_cv_lib_db_4_7_db_env_create+set}" = set; then :
+  $as_echo_n "(cached) " >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-ldb-4.7  $LIBS"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char db_env_create ();
+int
+main ()
+{
+return db_env_create ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"; then :
+  ac_cv_lib_db_4_7_db_env_create=yes
+else
+  ac_cv_lib_db_4_7_db_env_create=no
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_db_4_7_db_env_create" >&5
+$as_echo "$ac_cv_lib_db_4_7_db_env_create" >&6; }
+if test "x$ac_cv_lib_db_4_7_db_env_create" = x""yes; then :
+  DB4VERSION=4.7
+
+$as_echo "#define HAVE_DB4 1" >>confdefs.h
+
+
+fi
+
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for db_env_create in -ldb-4.8" >&5
+$as_echo_n "checking for db_env_create in -ldb-4.8... " >&6; }
+if test "${ac_cv_lib_db_4_8_db_env_create+set}" = set; then :
+  $as_echo_n "(cached) " >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-ldb-4.8  $LIBS"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char db_env_create ();
+int
+main ()
+{
+return db_env_create ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"; then :
+  ac_cv_lib_db_4_8_db_env_create=yes
+else
+  ac_cv_lib_db_4_8_db_env_create=no
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_db_4_8_db_env_create" >&5
+$as_echo "$ac_cv_lib_db_4_8_db_env_create" >&6; }
+if test "x$ac_cv_lib_db_4_8_db_env_create" = x""yes; then :
+  DB4VERSION=4.8
+
+$as_echo "#define HAVE_DB4 1" >>confdefs.h
+
+
 fi
 
 
