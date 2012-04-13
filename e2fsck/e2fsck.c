@@ -198,6 +198,7 @@ errcode_t e2fsck_reset_context(e2fsck_t ctx)
 #ifdef HAVE_PTHREAD
 	ctx->fs_need_locking = 0;
 #endif
+	ctx->fs_unexpanded_inodes = 0;
 
 	for (i=0; i < MAX_EXTENT_DEPTH_COUNT; i++)
 		ctx->extent_depth_count[i] = 0;
