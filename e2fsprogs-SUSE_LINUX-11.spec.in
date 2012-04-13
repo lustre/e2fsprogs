@@ -242,6 +242,7 @@ rm -rf $RPM_BUILD_ROOT
 /usr/sbin/mklost+found
 /usr/sbin/filefrag
 /usr/sbin/e2freefrag
+@E2SCAN_CMT@/usr/sbin/e2scan
 %{_infodir}/libext2fs.info.gz
 %{_mandir}/man1/chattr.1.gz
 %{_mandir}/man1/lsattr.1.gz

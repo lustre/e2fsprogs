@@ -13,10 +13,11 @@ INSTALL = @INSTALL@
 @DEBUGFS_CMT@DEBUGFS_DIR= debugfs
 @UUID_CMT@UUID_LIB_SUBDIR= lib/uuid
 @BLKID_CMT@BLKID_LIB_SUBDIR= lib/blkid
-QUOTA_LIB_SUBDIR= lib/quota
+@QUOTA_CMT@QUOTA_LIB_SUBDIR= lib/quota
+@E2SCAN_CMT@E2SCAN_DIR= e2scan
 
 LIB_SUBDIRS=lib/et lib/ss lib/e2p $(UUID_LIB_SUBDIR) $(BLKID_LIB_SUBDIR) $(QUOTA_LIB_SUBDIR) lib/ext2fs intl
-PROG_SUBDIRS=e2fsck $(DEBUGFS_DIR) misc $(RESIZE_DIR) tests/progs po
+PROG_SUBDIRS=e2fsck $(DEBUGFS_DIR) misc $(RESIZE_DIR) $(E2SCAN_DIR) tests/progs po
 SUBDIRS=util $(LIB_SUBDIRS) $(PROG_SUBDIRS) tests
 
 SUBS= util/subst.conf lib/config.h lib/dirpaths.h \
@@ -68,7 +69,7 @@ distclean-doc:
 
 install: subs all-libs-recursive install-progs-recursive \
   install-shlibs-libs-recursive install-doc-libs
-	if test ! -d e2fsck && test ! -d debugfs && test ! -d misc && test ! -d ext2ed ; then $(MAKE) install-libs ; fi
+	if test ! -d e2fsck && test ! -d debugfs && test ! -d e2scan && test ! -d misc && test ! -d ext2ed ; then $(MAKE) install-libs ; fi
 
 install-strip: subs all-libs-recursive install-strip-progs-recursive \
   install-shlibs-strip-libs-recursive install-doc-libs

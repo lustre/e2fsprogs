@@ -635,6 +635,28 @@ DEBUGFS_CMT=
 )
 AC_SUBST(DEBUGFS_CMT)
 dnl
+dnl handle --enable-e2scan
+dnl
+AC_ARG_ENABLE([e2scan],
+[  --disable-e2scan   	  disable support of e2scan program],
+if test "$enableval" = "no"
+then
+	echo "Disabling e2scan support"
+	E2SCAN_CMT="#"
+	E2SCAN_MAN='.\"'
+else
+	E2SCAN_CMT=
+	E2SCAN_MAN=
+	echo "Enabling e2scan support"
+fi
+,
+echo "Enabling e2scan support by default"
+E2SCAN_CMT=
+E2SCAN_MAN=
+)
+AC_SUBST(E2SCAN_CMT)
+AC_SUBST(E2SCAN_MAN)
+dnl
 dnl handle --enable-imager
 dnl
 AC_ARG_ENABLE([imager],
@@ -903,6 +925,10 @@ AC_CHECK_HEADERS(net/if.h,,,
 #include <sys/socket.h>
 #endif
 ]])
+dnl do not check sqlite3.h if e2scan is disabled
+if test x"$E2SCAN_CMT" == x; then
+AC_CHECK_HEADERS(sqlite3.h)
+fi
 AC_FUNC_VPRINTF
 dnl Check to see if dirent has member d_reclen. On cygwin those d_reclen
 dnl is not decleared.
@@ -1122,6 +1148,52 @@ AC_CHECK_LIB(db-4.8, db_env_create,
 ])
 AC_SUBST(DB4VERSION)
 ])
+dnl
+dnl Check to see if static sqlite exists
+dnl
+AC_ARG_WITH(
+	[sqlite3],
+	[  --with-sqlite3=DIR      location of sqlite3 library (default /usr/lib)],
+	[SQLITE3_LIBS="-L$with_sqlite3"],,
+	[SQLITE3_LIBS="-L/usr/lib64 -L/usr/lib"])
+
+dnl do not check sqlite3 library if e2scan is disabled
+if test x"$E2SCAN_CMT" == x; then
+
+CFLAGS_OLD=$CFLAGS
+SQLITE3_LIB=''
+dnl
+dnl check static sqlite3 first
+dnl
+CFLAGS="$CFLAGS_OLD $SQLITE3_LIBS -static -pthread"
+AC_CHECK_LIB(sqlite3, sqlite3_open,
+	[
+	SQLITE3_LIB="$SQLITE3_LIBS -static -pthread -lsqlite3"
+	AC_DEFINE(HAVE_SQLITE3, 1, [Define to 1 if SQLite library is present])
+	])
+
+if test x"$SQLITE3_LIB" == x; then
+dnl
+dnl static sqlite3 is not found, check dynamic sqlite3
+dnl
+	AC_MSG_WARN(no static sqlite3 - looking for dynamic one)
+	CFLAGS="$CFLAGS_OLD $SQLITE3_LIBS -pthread"
+	AC_CHECK_LIB(sqlite3, sqlite3_close,
+		[
+		SQLITE3_LIB="$SQLITE3_LIBS -pthread -lsqlite3"
+		AC_DEFINE(HAVE_SQLITE3, 1, [Define to 1 if SQLite library is present])
+		])
+fi
+
+AC_SUBST(SQLITE3_LIB)
+CFLAGS=$CFLAGS_OLD
+
+if test x"$SQLITE3_LIB" == x; then
+	AC_MSG_WARN(no sqlite3 - e2scan will not support database based scanning)
+fi
+
+fi
+
 dnl
 dnl See if optreset exists
 dnl
@@ -1435,7 +1507,7 @@ for i in MCONFIG Makefile e2fsprogs.spec \
 	lib/ss/ss.pc lib/uuid/uuid.pc lib/et/com_err.pc \
 	lib/e2p/e2p.pc lib/blkid/blkid.pc lib/ext2fs/ext2fs.pc \
 	misc/Makefile ext2ed/Makefile e2fsck/Makefile \
-	debugfs/Makefile tests/Makefile tests/progs/Makefile \
+	debugfs/Makefile e2scan/Makefile tests/Makefile tests/progs/Makefile \
 	resize/Makefile doc/Makefile intl/Makefile \
 	intl/libgnuintl.h po/Makefile.in ; do
 	if test -d `dirname ${srcdir}/$i` ; then
