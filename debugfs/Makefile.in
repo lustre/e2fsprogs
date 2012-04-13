@@ -50,6 +50,7 @@ STATIC_DEPLIBS= $(STATIC_LIBEXT2FS) $(DEPSTATIC_LIBSS) \
 # clean up this mess, we should be able to drop it
 LOCAL_CFLAGS = -I$(srcdir)/../e2fsck -DDEBUGFS
 DEPEND_CFLAGS = -I$(srcdir)
+@LFSCK_CMT@LUSTRE_INC=-I @LUSTRE@/lustre/include -I @LUSTRE@/include -I @LUSTRE@/libcfs/include -Wall
 
 .c.o:
 	$(E) "	CC $<"

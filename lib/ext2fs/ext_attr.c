@@ -376,6 +376,7 @@ static struct ea_name_index ea_names[] = {
 	{2, "system.posix_acl_access"},
 	{8, "system.richacl"},
 	{6, "security."},
+	{5, "lustre."},
 	{4, "trusted."},
 	{7, "system."},
 	{1, "user."},
@@ -1132,7 +1133,8 @@ out:
 
 errcode_t ext2fs_xattrs_iterate(struct ext2_xattr_handle *h,
 				int (*func)(char *name, char *value,
-					    size_t value_len, void *data),
+					    size_t value_len,
+					    ext2_ino_t inode_num, void *data),
 				void *data)
 {
 	struct ext2_xattr *x;
@@ -1141,7 +1143,7 @@ errcode_t ext2fs_xattrs_iterate(struct ext2_xattr_handle *h,
 
 	EXT2_CHECK_MAGIC(h, EXT2_ET_MAGIC_EA_HANDLE);
 	for (x = h->attrs; x < h->attrs + h->count; x++) {
-		ret = func(x->name, x->value, x->value_len, data);
+		ret = func(x->name, x->value, x->value_len, x->ea_ino, data);
 		if (ret & XATTR_CHANGED)
 			dirty = 1;
 		if (ret & XATTR_ABORT)
