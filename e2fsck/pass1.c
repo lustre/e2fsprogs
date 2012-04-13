@@ -437,13 +437,13 @@ static void check_ea_in_inode(e2fsck_t ctx, struct problem_context *pctx,
 	ea_ibody_quota->inodes = 0;
 
 	inode = (struct ext2_inode_large *) pctx->inode;
-	storage_size = EXT2_INODE_SIZE(ctx->fs->super) - EXT2_GOOD_OLD_INODE_SIZE -
-		inode->i_extra_isize;
+	storage_size = EXT2_INODE_SIZE(ctx->fs->super) -
+		EXT2_GOOD_OLD_INODE_SIZE - inode->i_extra_isize;
 	header = ((char *) inode) + EXT2_GOOD_OLD_INODE_SIZE +
 		 inode->i_extra_isize;
 	end = header + storage_size;
-	start = header + sizeof(__u32);
-	entry = (struct ext2_ext_attr_entry *) start;
+	entry = &IHDR(inode)->h_first_entry[0];
+	start = (char *)entry;
 
 	/* scan all entry's headers first */
 
@@ -619,7 +619,7 @@ static void check_inode_extra_space(e2fsck_t ctx, struct problem_context *pctx,
 	if (inode->i_extra_isize >= max - sizeof(__u32))
 		return;
 
-	eamagic = IHDR(inode);
+	eamagic = &IHDR(inode)->h_magic;
 	if (*eamagic != EXT2_EXT_ATTR_MAGIC &&
 	    (ctx->flags & E2F_FLAG_EXPAND_EISIZE) &&
 	    (inode->i_extra_isize < ctx->want_extra_isize)) {
@@ -911,9 +911,8 @@ int e2fsck_pass1_delete_attr(e2fsck_t ctx, struct ext2_inode_large *inode,
 	int in_inode = 1, error;
 	unsigned int freed_bytes = inode->i_extra_isize;
 
-	start = (char *)inode + EXT2_GOOD_OLD_INODE_SIZE +
-			inode->i_extra_isize + sizeof(__u32);
-	entry_ino = (struct ext2_ext_attr_entry *)start;
+	entry_ino = &IHDR(inode)->h_first_entry[0];
+	start = (char *)entry_ino;
 
 	if (inode->i_file_acl) {
 		error = ext2fs_read_ext_attr(ctx->fs, inode->i_file_acl,
