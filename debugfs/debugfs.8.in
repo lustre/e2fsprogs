@@ -301,19 +301,29 @@ corruption in the file system.)
 .B dump_unused
 Dump unused blocks which contain non-null bytes.
 .TP
-.BI ea_get " [-f outfile]|[-xVC] [-r] filespec attr_name"
+.BI "ea_get [-f " outfile "]|[-xVC] [-r]" " filespec attr_name"
 Retrieve the value of the extended attribute
 .I attr_name
 in the file
 .I filespec
-and write it either to stdout or to \fIoutfile\fR.
+and write it either to stdout or to \fIoutfile\fR if
+.B -f
+is specified.  If
+.B -C
+is used the xattr is printed with C-format escapes, and if
+.B -x
+is used the xattr is printed in hex format, while the
+.B -V
+option prints in raw format without quotes.  The
+.B -r
+option prints the xattr name in raw format.
 .TP
 .BI ea_list " filespec
 List the extended attributes associated with the file
 .I filespec
 to standard output.
 .TP
-.BI ea_set " [-f infile] [-r] filespec attr_name attr_value
+.BI "ea_set [-f " infile "] [-r] " "filespec attr_name attr_value"
 Set the value of the extended attribute
 .I attr_name
 in the file

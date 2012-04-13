@@ -10,8 +10,8 @@ Filesystem OS type:       Linux
 Inode count:              1024
 Block count:              16384
 Reserved block count:     819
-Overhead clusters:        1799
-Free blocks:              14533
+Overhead clusters:        2823
+Free blocks:              13509
 Free inodes:              1003
 First block:              1
 Block size:               1024
@@ -59,8 +59,8 @@ Group 1: (Blocks 8193-16383) [INODE_UNINIT]
   Block bitmap at 131 (bg #0 + 130)
   Inode bitmap at 133 (bg #0 + 132)
   Inode table at 390-645 (bg #0 + 389)
-  7038 free blocks, 512 free inodes, 0 directories, 512 unused inodes
-  Free blocks: 9346-16383
+  6014 free blocks, 512 free inodes, 0 directories, 512 unused inodes
+  Free blocks: 10370-16383
   Free inodes: 513-1024
 debugfs: stat /emptyfile
 Inode: III   Type: regular    
@@ -105,15 +105,30 @@ Extended attributes:
 debugfs: ea_list acl_dir
 Extended attributes:
   system.data (0)
-  system.posix_acl_access (28) = 01 00 00 00 01 00 07 00 04 00 05 00 08 00 05 00 2a 00 00 00 10 00 05 00 20 00 05 00 
-  system.posix_acl_default (28) = 01 00 00 00 01 00 07 00 04 00 05 00 08 00 05 00 04 00 00 00 10 00 05 00 20 00 05 00 
+  system.posix_acl_access:
+    user::rwx
+    group::r-x
+    group:42:r-x
+    mask::r-x
+    other::r-x
+  system.posix_acl_default:
+    user::rwx
+    group::r-x
+    group:4:r-x
+    mask::r-x
+    other::r-x
 debugfs: ea_list acl_dir/file
 Extended attributes:
   system.data (0)
-  system.posix_acl_access (28) = 01 00 00 00 01 00 07 00 04 00 05 00 08 00 05 00 2a 00 00 00 10 00 05 00 20 00 05 00 
+  system.posix_acl_access:
+    user::rwx
+    group::r-x
+    group:42:r-x
+    mask::r-x
+    other::r-x
 Pass 1: Checking inodes, blocks, and sizes
 Pass 2: Checking directory structure
 Pass 3: Checking directory connectivity
 Pass 4: Checking reference counts
 Pass 5: Checking group summary information
-test.img: 21/1024 files (0.0% non-contiguous), 1851/16384 blocks
+test.img: 21/1024 files (0.0% non-contiguous), 2875/16384 blocks
