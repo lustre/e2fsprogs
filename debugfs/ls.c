@@ -24,6 +24,7 @@ extern char *optarg;
 #endif
 
 #include "debugfs.h"
+#include "ext2fs/lfsck.h"
 
 /*
  * list directory
@@ -32,6 +33,7 @@ extern char *optarg;
 #define LONG_OPT	0x0001
 #define DELETED_OPT	0x0002
 #define PARSE_OPT	0x0004
+#define DIRDATA_OPT	0x0008
 
 struct list_dir_struct {
 	FILE	*f;
@@ -41,6 +43,40 @@ struct list_dir_struct {
 
 static const char *monstr[] = { "Jan", "Feb", "Mar", "Apr", "May", "Jun",
 				"Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
+
+static void list_dirdata(struct list_dir_struct *ls,
+			 struct ext2_dir_entry *dirent)
+{
+	unsigned char	*data;
+	int		dlen;
+	__u8		dirdata_mask;
+	__u8		file_type = dirent->name_len >> 8;
+
+	data = (unsigned char *)dirent->name +
+		(dirent->name_len & EXT2_NAME_LEN) + 1;
+
+	for (dirdata_mask = EXT2_FT_MASK + 1;
+	     dirdata_mask != 0; dirdata_mask <<= 1) {
+		if ((dirdata_mask & file_type) == 0)
+			continue;
+
+		dlen = data[0];
+		fprintf(ls->f, " ");
+
+		if (dirdata_mask == EXT2_DIRENT_LUFID) {
+			struct lu_fid *fid = (struct lu_fid *)(data + 1);
+
+			fid_be_to_cpu(fid, fid);
+			fprintf(ls->f, DFID, PFID(fid));
+		} else {
+			int i;
+
+			for (i = 1; i < dlen; i++)
+				fprintf(ls->f, "%02x", data[i]);
+		}
+		data += dlen;
+	}
+}
 
 static int list_dir_proc(ext2_ino_t dir EXT2FS_ATTR((unused)),
 			 int	entry,
@@ -106,7 +142,10 @@ static int list_dir_proc(ext2_ino_t dir EXT2FS_ATTR((unused)),
 			fprintf(ls->f, "%5d", inode.i_size);
 		else
 			fprintf(ls->f, "%5llu", EXT2_I_SIZE(&inode));
-		fprintf (ls->f, " %s %s\n", datestr, name);
+		fprintf(ls->f, " %s", datestr);
+		if ((ls->options & DIRDATA_OPT) != 0)
+			list_dirdata(ls, dirent);
+		fprintf(ls->f, " %s\n", name);
 	} else {
 		sprintf(tmp, "%c%u%c (%d) %s   ", lbr, dirent->inode, rbr,
 			dirent->rec_len, name);
@@ -135,10 +174,13 @@ void do_list_dir(int argc, char *argv[])
 		return;
 
 	reset_getopt();
-	while ((c = getopt (argc, argv, "dlp")) != EOF) {
+	while ((c = getopt (argc, argv, "dDlp")) != EOF) {
 		switch (c) {
 		case 'l':
 			ls.options |= LONG_OPT;
+			break;
+		case 'D':
+			ls.options |= DIRDATA_OPT;
 			break;
 		case 'd':
 			ls.options |= DELETED_OPT;
