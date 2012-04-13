@@ -1050,6 +1050,10 @@ extern errcode_t ext2fs_dup_handle(ext2_filsys src, ext2_filsys *dest);
 extern errcode_t ext2fs_expand_dir(ext2_filsys fs, ext2_ino_t dir);
 
 /* ext_attr.c */
+extern errcode_t ext2fs_attr_get(ext2_filsys fs, struct ext2_inode *inode,
+				 int name_index, const char *name, char *buffer,
+				 size_t buffer_size, int *easize);
+
 extern __u32 ext2fs_ext_attr_hash_entry(struct ext2_ext_attr_entry *entry,
 					void *data);
 int ext2fs_attr_get_next_attr(struct ext2_ext_attr_entry *entry, int name_index,
