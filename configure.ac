@@ -1751,6 +1751,7 @@ if test -z "$BLKID_CMT" ; then
 fi
 for i in MCONFIG Makefile \
 	e2fsprogs-RHEL-6.spec \
+	e2fsprogs-SUSE_LINUX-11.spec \
 	util/Makefile util/subst.conf util/gen-tarball util/install-symlink \
 	lib/et/Makefile lib/ss/Makefile lib/e2p/Makefile \
 	lib/ext2fs/Makefile lib/ext2fs/ext2_types.h \
