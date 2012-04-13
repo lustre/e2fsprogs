@@ -300,6 +300,15 @@ struct problem_context {
 /* Orphan file size isn't multiple of blocks size */
 #define PR_0_ORPHAN_FILE_WRONG_SIZE		0x000055
 
+/* Invalid s_min_extra_isize */
+#define PR_0_MIN_EXTRA_ISIZE_INVALID		0x000056
+
+/* Invalid s_want_extra_isize */
+#define PR_0_WANT_EXTRA_ISIZE_INVALID		0x000057
+
+/* Clear EXT4_FEATURE_RO_COMPAT_EXTRA_ISIZE flag */
+#define PR_0_CLEAR_EXTRA_ISIZE			0x000058
+
 /*
  * Pass 1 errors
  */
@@ -739,6 +748,25 @@ struct problem_context {
 
 /* Inode references EA inode but ea_inode feature is not enabled */
 #define PR_1_EA_INODE_FEATURE			0x010092
+
+/* Warning for user that all inodes need to be expanded atleast by
+ * s_min_extra_isize
+ */
+#define PR_1_EXPAND_EISIZE_WARNING		0x010093
+
+/* Expand the inode */
+#define PR_1_EXPAND_EISIZE			0x010094
+
+/* Delete an EA so that EXTRA_ISIZE may be enabled */
+#define PR_1_EISIZE_DELETE_EA			0x010095
+
+/* An EA needs to be deleted by e2fsck is being run with -p or -y */
+#define PR_1_EA_BLK_NOSPC			0x010096
+
+/* Disable EXTRA_ISIZE feature as inode cannot be expanded
+ * without deletion of an EA
+ */
+#define PR_1_CLEAR_EXTRA_ISIZE			0x010097
 
 /* Failed to goto block group */
 #define PR_1_SCAN_GOTO				0x0100A0
@@ -1312,6 +1340,9 @@ struct problem_context {
 
 /* Block bitmap checksum does not match */
 #define PR_5_BLOCK_BITMAP_CSUM_INVALID	0x05001B
+
+/* Expand the inodes which need a new EA block */
+#define PR_5_EXPAND_EISIZE		0x05001C
 
 /*
  * Post-Pass 5 errors
