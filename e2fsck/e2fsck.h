@@ -189,6 +189,7 @@ struct resource_track {
 #define E2F_FLAG_GOT_DEVSIZE	0x0800 /* Device size has been fetched */
 #define E2F_FLAG_EXITING	0x1000 /* E2fsck exiting due to errors */
 #define E2F_FLAG_TIME_INSANE	0x2000 /* Time is insane */
+#define E2F_FLAG_EXPAND_EISIZE	0x4000 /* Expand the inodes (i_extra_isize) */
 
 #define E2F_RESET_FLAGS (E2F_FLAG_TIME_INSANE)
 
@@ -379,6 +380,15 @@ struct e2fsck_struct {
 	enum clone_opt clone;
 	profile_t	profile;
 	int blocks_per_page;
+
+	/* Expand large inodes to atleast these many bytes */
+	int want_extra_isize;
+	/* minimum i_extra_isize found in used inodes. Should not be lesser
+	 * than s_min_extra_isize.
+	 */
+	__u32 min_extra_isize;
+	int fs_unexpanded_inodes;
+	ext2fs_inode_bitmap expand_eisize_map;
 
 	/*
 	 * For the use of callers of the e2fsck functions; not used by

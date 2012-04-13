@@ -456,6 +456,12 @@ struct ext2_inode_large {
 
 #define i_dir_acl	i_size_high
 
+#define EXT2_FITS_IN_INODE(inode, field)	      \
+	((offsetof(struct ext2_inode_large, field) +    \
+	 sizeof((inode)->field)) <=		     \
+			 (EXT2_GOOD_OLD_INODE_SIZE +    \
+			  (inode)->i_extra_isize))      \
+
 #if defined(__KERNEL__) || defined(__linux__)
 #define i_reserved1	osd1.linux1.l_i_reserved1
 #define i_frag		osd2.linux2.l_i_frag
@@ -732,6 +738,7 @@ struct ext2_super_block {
 #define EXT2_FEATURE_RO_COMPAT_SUPP	(EXT2_FEATURE_RO_COMPAT_SPARSE_SUPER| \
 					 EXT2_FEATURE_RO_COMPAT_LARGE_FILE| \
 					 EXT4_FEATURE_RO_COMPAT_DIR_NLINK| \
+					 EXT4_FEATURE_RO_COMPAT_EXTRA_ISIZE| \
 					 EXT2_FEATURE_RO_COMPAT_BTREE_DIR)
 
 /*
