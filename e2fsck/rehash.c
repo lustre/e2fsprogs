@@ -62,6 +62,8 @@ struct fill_dir_struct {
 	unsigned int dir_size;
 	int compress;
 	ino_t parent;
+	struct ext2_dir_entry *dot_de;
+	struct ext2_dir_entry *dotdot_de;
 };
 
 struct hash_entry {
@@ -129,12 +131,15 @@ static int fill_dir_block(ext2_filsys fs,
 		dir_offset += rec_len;
 		if (dirent->inode == 0)
 			continue;
-		if (!fd->compress && ((dirent->name_len&0xFF) == 1) &&
-		    (dirent->name[0] == '.'))
+		if (!fd->compress && ((dirent->name_len & 0xFF) == 1) &&
+		    (dirent->name[0] == '.')) {
+			fd->dot_de = dirent;
 			continue;
-		if (!fd->compress && ((dirent->name_len&0xFF) == 2) &&
+		}
+		if (!fd->compress && ((dirent->name_len & 0xFF) == 2) &&
 		    (dirent->name[0] == '.') && (dirent->name[1] == '.')) {
 			fd->parent = dirent->inode;
+			fd->dotdot_de = dirent;
 			continue;
 		}
 		if (fd->num_array >= fd->max_array) {
@@ -149,7 +154,7 @@ static int fill_dir_block(ext2_filsys fs,
 		}
 		ent = fd->harray + fd->num_array++;
 		ent->dir = dirent;
-		fd->dir_size += EXT2_DIR_REC_LEN(dirent->name_len & 0xFF);
+		fd->dir_size += EXT2_DIR_REC_LEN(dirent);
 		ent->ino = dirent->inode;
 		if (fd->compress)
 			ent->hash = ent->minor_hash = 0;
@@ -440,7 +445,7 @@ static errcode_t copy_dir_entries(e2fsck_t ctx,
 		ent = fd->harray + i;
 		if (ent->dir->inode == 0)
 			continue;
-		rec_len = EXT2_DIR_REC_LEN(ent->dir->name_len & 0xFF);
+		rec_len = EXT2_DIR_REC_LEN(ent->dir);
 		if (rec_len > left) {
 			if (left) {
 				left += prev_rec_len;
@@ -467,7 +472,7 @@ static errcode_t copy_dir_entries(e2fsck_t ctx,
 		if (retval)
 			return retval;
 		prev_rec_len = rec_len;
-		memcpy(dirent->name, ent->dir->name, dirent->name_len & 0xFF);
+		memcpy(dirent->name, ent->dir->name, rec_len);
 		offset += rec_len;
 		left -= rec_len;
 		if (left < slack) {
@@ -488,38 +493,44 @@ static errcode_t copy_dir_entries(e2fsck_t ctx,
 
 
 static struct ext2_dx_root_info *set_root_node(ext2_filsys fs, char *buf,
-				    ext2_ino_t ino, ext2_ino_t parent)
+					ext2_ino_t ino, ext2_ino_t parent,
+					struct ext2_dir_entry *dot_de,
+					struct ext2_dir_entry *dotdot_de)
 {
-	struct ext2_dir_entry 		*dir;
-	struct ext2_dx_root_info  	*root;
+	struct ext2_dir_entry		*dir;
+	struct ext2_dx_root_info	*root;
 	struct ext2_dx_countlimit	*limits;
-	int				filetype = 0;
-
-	if (fs->super->s_feature_incompat & EXT2_FEATURE_INCOMPAT_FILETYPE)
-		filetype = EXT2_FT_DIR << 8;
+	int				offset;
+	int				rec_len;
 
 	memset(buf, 0, fs->blocksize);
 	dir = (struct ext2_dir_entry *) buf;
 	dir->inode = ino;
-	dir->name[0] = '.';
-	dir->name_len = 1 | filetype;
-	dir->rec_len = 12;
-	dir = (struct ext2_dir_entry *) (buf + 12);
-	dir->inode = parent;
-	dir->name[0] = '.';
-	dir->name[1] = '.';
-	dir->name_len = 2 | filetype;
-	dir->rec_len = fs->blocksize - 12;
+	dir->name_len = dot_de->name_len;
+	dir->rec_len = dot_de->rec_len;
+	rec_len	= EXT2_DIR_REC_LEN(dot_de);
+	memcpy(dir->name, dot_de->name, rec_len);
+	offset = rec_len;
 
-	root = (struct ext2_dx_root_info *) (buf+24);
+	dir = (struct ext2_dir_entry *) (buf + offset);
+	/* set to jump over the index block */
+	dir->inode = parent;
+	dir->name_len = dotdot_de->name_len;
+	dir->rec_len = fs->blocksize - rec_len;
+	rec_len = EXT2_DIR_REC_LEN(dotdot_de);
+	memcpy(dir->name, dotdot_de->name, rec_len);
+	offset += rec_len;
+
+	root = (struct ext2_dx_root_info *) (buf + offset);
 	root->reserved_zero = 0;
 	root->hash_version = fs->super->s_def_hash_version;
-	root->info_length = 8;
+	root->info_length = sizeof(struct ext2_dx_root_info);
 	root->indirect_levels = 0;
 	root->unused_flags = 0;
+	offset += sizeof(struct ext2_dx_root_info);
 
-	limits = (struct ext2_dx_countlimit *) (buf+32);
-	limits->limit = (fs->blocksize - 32) / sizeof(struct ext2_dx_entry);
+	limits = (struct ext2_dx_countlimit *) (buf + offset);
+	limits->limit = (fs->blocksize - offset) / sizeof(struct ext2_dx_entry);
 	limits->count = 0;
 
 	return root;
@@ -550,7 +561,9 @@ static struct ext2_dx_entry *set_int_node(ext2_filsys fs, char *buf)
 static errcode_t calculate_tree(ext2_filsys fs,
 				struct out_dir *outdir,
 				ext2_ino_t ino,
-				ext2_ino_t parent)
+				ext2_ino_t parent,
+				struct ext2_dir_entry *dot_de,
+				struct ext2_dir_entry *dotdot_de)
 {
 	struct ext2_dx_root_info  	*root_info;
 	struct ext2_dx_entry 		*root, *dx_ent = 0;
@@ -560,7 +573,8 @@ static errcode_t calculate_tree(ext2_filsys fs,
 	int				i, c1, c2, nblks;
 	int				limit_offset, root_offset;
 
-	root_info = set_root_node(fs, outdir->buf, ino, parent);
+	root_info = set_root_node(fs, outdir->buf, ino, parent, dot_de,
+				  dotdot_de);
 	root_offset = limit_offset = ((char *) root_info - outdir->buf) +
 		root_info->info_length;
 	root_limit = (struct ext2_dx_countlimit *) (outdir->buf + limit_offset);
@@ -804,11 +818,10 @@ resort:
 	if (retval)
 		goto errout;
 
-	free(dir_buf); dir_buf = 0;
-
 	if (!fd.compress) {
 		/* Calculate the interior nodes */
-		retval = calculate_tree(fs, &outdir, ino, fd.parent);
+		retval = calculate_tree(fs, &outdir, ino, fd.parent,
+					fd.dot_de, fd.dotdot_de);
 		if (retval)
 			goto errout;
 	}
