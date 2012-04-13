@@ -42,6 +42,8 @@
 #ifndef IDENTITY_DOWNCALL_MAGIC
 #define l_object_seq	l_object_gr		/* for lov_ost_data_v1 */
 #define lmm_object_seq	lmm_object_gr		/* for lov_mds_md_v1/3 */
+#define ff_seq		ff_group		/* for filter_fid */
+#define ff_parent	(struct lu_fid *)ff_fid /* for filter_fid */
 #endif /* IDENTITY_DOWNCALL_MAGIC */
 
 /* Unfortunately, neither the 1.8 or 2.x lustre_idl.h file is suitable
@@ -66,8 +68,16 @@ struct lu_fid {
 };
 #endif
 
+static inline void lfsck_swab_fid(struct lu_fid *fid)
+{
+	fid->f_seq = ext2fs_le64_to_cpu(fid->f_seq);
+	fid->f_oid = ext2fs_le32_to_cpu(fid->f_oid);
+	fid->f_ver = ext2fs_le32_to_cpu(fid->f_ver);
+}
+
 #define OBD_CONNECT_FID		0x40000000ULL
 
+#ifndef LMA_INCOMPAT_SUPP
 struct lustre_mdt_attrs {
 	__u32		lma_compat;
 	__u32		lma_incompat;
@@ -78,6 +88,7 @@ struct lustre_mdt_attrs {
 	__u64		lma_som_blocks;
 	__u64		lma_som_mountid;
 };
+#endif
 
 struct ost_id {
 	__u64	oi_id;
