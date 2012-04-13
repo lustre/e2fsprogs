@@ -1492,6 +1492,11 @@ static struct e2fsck_problem problem_table[] = {
 	  N_("@i %i is badly corrupt (badness value = %N).  "),
 	  PROMPT_CLEAR, PR_PREEN_OK },
 
+	/* Directory entry dirdata length set incorrectly */
+	{ PR_2_CLEAR_DIRDATA,
+	  N_("@E dirdata length set incorrectly.\n"),
+	  PROMPT_CLEAR, PR_PREEN_OK },
+
 	/* Pass 3 errors */
 
 	/* Pass 3: Checking directory connectivity */
