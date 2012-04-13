@@ -622,6 +622,13 @@ typedef struct ext2_icount *ext2_icount_t;
 	  if ((struct)->magic != (code)) return (code)
 
 /*
+ * Flags for returning status of ext2fs_expand_extra_isize()
+ */
+#define EXT2_EXPAND_EISIZE_UNSAFE	0x0001
+#define EXT2_EXPAND_EISIZE_NEW_BLOCK	0x0002
+#define EXT2_EXPAND_EISIZE_NOSPC	0x0004
+
+/*
  * Features supported by this version of the library
  */
 #define EXT2_LIB_FEATURE_COMPAT_SUPP	(EXT2_FEATURE_COMPAT_DIR_PREALLOC|\
@@ -1267,11 +1274,25 @@ extern errcode_t ext2fs_dup_handle(ext2_filsys src, ext2_filsys *dest);
 extern errcode_t ext2fs_expand_dir(ext2_filsys fs, ext2_ino_t dir);
 
 /* ext_attr.c */
+extern errcode_t ext2fs_attr_get(ext2_filsys fs, struct ext2_inode *inode,
+				 int name_index, const char *name, char *buffer,
+				 size_t buffer_size, int *easize);
+
 extern __u32 ext2fs_ext_attr_hash_entry(struct ext2_ext_attr_entry *entry,
 					void *data);
 extern errcode_t ext2fs_ext_attr_hash_entry2(ext2_filsys fs,
 					     struct ext2_ext_attr_entry *entry,
 					     void *data, __u32 *hash);
+int ext2fs_attr_get_next_attr(struct ext2_ext_attr_entry *entry, int name_index,
+			      char *buffer, int buffer_size, int start);
+errcode_t ext2fs_attr_set(ext2_filsys fs, ext2_ino_t ino,
+			  struct ext2_inode *inode,
+			  int name_index, const char *name, const char *value,
+			  int value_len, int flags);
+extern errcode_t ext2fs_expand_extra_isize(ext2_filsys fs, ext2_ino_t ino,
+					   struct ext2_inode_large *inode,
+					   int new_extra_isize, int *ret,
+					   int *needed_size);
 extern errcode_t ext2fs_read_ext_attr(ext2_filsys fs, blk_t block, void *buf);
 extern errcode_t ext2fs_read_ext_attr2(ext2_filsys fs, blk64_t block,
 				       void *buf);
