@@ -840,8 +840,7 @@ void check_super_block(e2fsck_t ctx)
 	 * write time is in the future.
 	 */
 	if (!broken_system_clock &&
-	    !(ctx->flags & E2F_FLAG_TIME_INSANE) &&
-	    fs->super->s_mtime > (__u32) ctx->now) {
+	    EXT4_XTIME_FUTURE(ctx, fs->super, fs->super->s_mtime, 0)) {
 		pctx.num = fs->super->s_mtime;
 		problem = PR_0_FUTURE_SB_LAST_MOUNT;
 		if (fs->super->s_mtime <= (__u32) ctx->now + ctx->time_fudge)
@@ -852,8 +851,7 @@ void check_super_block(e2fsck_t ctx)
 		}
 	}
 	if (!broken_system_clock &&
-	    !(ctx->flags & E2F_FLAG_TIME_INSANE) &&
-	    fs->super->s_wtime > (__u32) ctx->now) {
+	    EXT4_XTIME_FUTURE(ctx, fs->super, fs->super->s_wtime, 0)) {
 		pctx.num = fs->super->s_wtime;
 		problem = PR_0_FUTURE_SB_LAST_WRITE;
 		if (fs->super->s_wtime <= (__u32) ctx->now + ctx->time_fudge)
