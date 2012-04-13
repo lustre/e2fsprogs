@@ -17,6 +17,8 @@ Source0: http://downloads.sourceforge.net/%{name}/%{name}-%{version}.tar.gz
 
 Url: http://downloads.whamcloud.com/public/
 Provides:       ldiskfsprogs = %{version}
+@LFSCK_CMT@Requires: db4 >= @DB4VERSION@
+@LFSCK_CMT@BuildRequires: db4-devel >= 4.1 texinfo
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 Requires: e2fsprogs-libs = %{version}-%{release}
 Requires: libcom_err >= 1.42.2
@@ -157,6 +159,7 @@ It was originally inspired by the Multics SubSystem library.
 %configure --enable-elf-shlibs --enable-nls --disable-uuidd --disable-fsck \
 	   --disable-e2initrd-helper --disable-libblkid --disable-libuuid \
 	   --disable-defrag --enable-symlink-install \
+	   @WITH_LUSTRE@ @ENABLE_LFSCK@ \
 	   %{?extra_config_flags:%extra_config_flags}
 make %{?_smp_mflags}
 
@@ -224,6 +227,7 @@ exit 0
 %{_root_sbindir}/fsck.ext3
 %{_root_sbindir}/fsck.ext4
 %{_root_sbindir}/fsck.ext4dev
+@LFSCK_CMT@%{_sbindir}/lfsck
 %{_root_sbindir}/logsave
 %{_root_sbindir}/mke2fs
 %{_root_sbindir}/mkfs.ext2
@@ -257,6 +261,7 @@ exit 0
 %{_mandir}/man8/e2image.8*
 %{_mandir}/man8/e2label.8*
 %{_mandir}/man8/e2undo.8*
+@LFSCK_CMT@%{_mandir}/man8/lfsck.8*
 %{_mandir}/man8/logsave.8*
 %{_mandir}/man8/mke2fs.8*
 %{_mandir}/man8/mkfs.ext2.8*
