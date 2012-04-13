@@ -2144,10 +2144,11 @@ static void check_blocks(e2fsck_t ctx, struct problem_context *pctx,
 
 		size = EXT2_I_SIZE(inode);
 		if ((pb.last_init_lblock >= 0) &&
-		    /* allow allocated blocks to end of PAGE_SIZE */
+		    /* allow blocks beyond EOF to end of PAGE_SIZE */
 		    (size < (__u64)pb.last_init_lblock * fs->blocksize) &&
-		    (pb.last_init_lblock / blkpg * blkpg != pb.last_init_lblock ||
-		     size < (__u64)(pb.last_init_lblock & ~(blkpg-1)) *
+		    ((pb.last_init_lblock + 1) / blkpg * blkpg !=
+			(pb.last_init_lblock + 1) ||
+		     size < (__u64)(pb.last_init_lblock & ~(blkpg - 1)) *
 		     fs->blocksize))
 			bad_size = 3;
 		else if (!(extent_fs && (inode->i_flags & EXT4_EXTENTS_FL)) &&
