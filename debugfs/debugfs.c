@@ -36,6 +36,7 @@ extern char *optarg;
 
 #include "../version.h"
 #include "jfs_user.h"
+#include "ext2fs/lfsck.h"
 
 #ifndef BUFSIZ
 #define BUFSIZ 8192
@@ -527,9 +528,55 @@ static void dump_xattr_string(FILE *out, const char *str, int len)
 			fprintf(out, "%02x ", (unsigned char)str[i]);
 }
 
+
+static void print_fidstr(FILE *out, ext2_ino_t inode_num, void *data, int len)
+{
+	struct filter_fid_old *ff = data;
+	int stripe;
+
+	/* Since Lustre 2.4 only the parent FID is stored in filter_fid,
+	 * and the self fid is stored in the LMA and is printed below. */
+	if (len < sizeof(ff->ff_parent)) {
+		fprintf(stderr, "%s: error: filter_fid for inode %u smaller "
+			"than expected (%d bytes).\n",
+			debug_prog_name, inode_num, len);
+		return;
+	}
+	fid_le_to_cpu(&ff->ff_parent, &ff->ff_parent);
+	stripe = fid_ver(&ff->ff_parent); /* stripe index is stored in f_ver */
+	ff->ff_parent.f_ver = 0;
+
+	fprintf(out, "  fid: ");
+	/* Old larger filter_fid should only ever be used with seq = 0.
+	 * FID-on-OST should use LMA for FID_SEQ_NORMAL OST objects. */
+	if (len > sizeof(ff->ff_parent))
+		fprintf(out, "objid=%llu seq=%llu ",
+			ext2fs_le64_to_cpu(ff->ff_objid),
+			ext2fs_le64_to_cpu(ff->ff_seq));
+
+	fprintf(out, "parent="DFID" stripe=%u\n", PFID(&ff->ff_parent), stripe);
+}
+
+static void print_lmastr(FILE *out, ext2_ino_t inode_num, void *data, int len)
+{
+	struct lustre_mdt_attrs *lma = data;
+
+	if (len < offsetof(typeof(*lma), lma_self_fid) +
+		  sizeof(lma->lma_self_fid)) {
+		fprintf(stderr, "%s: error: LMA for inode %u smaller than "
+			"expected (%d bytes).\n",
+			debug_prog_name, inode_num, len);
+		return;
+	}
+	fid_le_to_cpu(&lma->lma_self_fid, &lma->lma_self_fid);
+	fprintf(out, "  lma: fid="DFID" compat=%x incompat=%x\n",
+		PFID(&lma->lma_self_fid), ext2fs_le32_to_cpu(lma->lma_compat),
+		ext2fs_le32_to_cpu(lma->lma_incompat));
+}
+
 static void internal_dump_inode_extra(FILE *out,
 				      const char *prefix EXT2FS_ATTR((unused)),
-				      ext2_ino_t inode_num EXT2FS_ATTR((unused)),
+				      ext2_ino_t inode_num,
 				      struct ext2_inode_large *inode)
 {
 	struct ext2_ext_attr_entry *entry;
@@ -581,6 +628,24 @@ static void internal_dump_inode_extra(FILE *out,
 						  start + entry->e_value_offs,
 						  entry->e_value_size);
 			fprintf(out, "\" (%u)\n", entry->e_value_size);
+
+			/* Special decoding for Lustre filter-fid */
+			if ((entry->e_name_index == EXT2_ATTR_INDEX_TRUSTED ||
+			     entry->e_name_index == EXT2_ATTR_INDEX_LUSTRE) &&
+			    !strncmp(EXT2_EXT_ATTR_NAME(entry),
+				     LUSTRE_XATTR_OST_FID, entry->e_name_len))
+				print_fidstr(out, inode_num,
+					     start + entry->e_value_offs,
+					     entry->e_value_size);
+			/* Special decoding for Lustre lma */
+			if ((entry->e_name_index == EXT2_ATTR_INDEX_TRUSTED ||
+			     entry->e_name_index == EXT2_ATTR_INDEX_LUSTRE) &&
+			    !strncmp(EXT2_EXT_ATTR_NAME(entry),
+				     LUSTRE_XATTR_MDT_LMA, entry->e_name_len))
+				print_lmastr(out, inode_num,
+					     start + entry->e_value_offs,
+					     entry->e_value_size);
+
 			entry = next;
 		}
 	}
