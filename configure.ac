@@ -918,6 +918,7 @@ else
   AC_CHECK_PROGS(BUILD_CC, gcc cc)
 fi
 AC_CHECK_HEADERS(m4_flatten([
+	attr/xattr.h
 	dirent.h
 	errno.h
 	execinfo.h
