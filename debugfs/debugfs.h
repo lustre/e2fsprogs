@@ -27,6 +27,7 @@ extern quota_ctx_t current_qctx;
 extern ext2_ino_t	root, cwd;
 extern int ss_sci_idx;
 extern ss_request_table debug_cmds, extent_cmds;
+extern const char *debug_prog_name;
 
 extern void reset_getopt(void);
 extern FILE *open_pager(void);

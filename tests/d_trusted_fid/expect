@@ -1,0 +1,4 @@
+Extended attributes:
+  fid: parent=[0x200000402:0xc:0x0] stripe=1 stripe_size=1048576 stripe_count=2 layout_version=0 range=0
+Extended attributes:
+  fid: parent=[0x200000402:0x8:0x0] stripe=1 stripe_size=1048576 stripe_count=2 component_id=65537 component_start=0 component_end=18446744073709551615 layout_version=6 range=0

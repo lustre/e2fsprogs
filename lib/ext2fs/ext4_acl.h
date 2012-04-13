@@ -4,6 +4,12 @@
 
 #define EXT4_ACL_VERSION        0x0001
 
+/* 23.2.2 acl_perm_t values */
+
+#define ACL_READ		(0x04)
+#define ACL_WRITE		(0x02)
+#define ACL_EXECUTE		(0x01)
+
 /* 23.2.5 acl_tag_t values */
 
 #define ACL_UNDEFINED_TAG	(0x00)

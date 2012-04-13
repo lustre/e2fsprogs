@@ -17,12 +17,16 @@ extern char *optarg;
 #include "support/cstring.h"
 
 #include "debugfs.h"
+#include "ext2fs/ext4_acl.h"
+#include "ext2fs/lfsck.h"
 
 #define PRINT_XATTR_HEX		0x01
 #define PRINT_XATTR_RAW		0x02
 #define PRINT_XATTR_C		0x04
 #define PRINT_XATTR_STATFMT	0x08
 #define PRINT_XATTR_NOQUOTES	0x10
+
+extern const char *debug_prog_name;
 
 /* Dump extended attributes */
 static void print_xattr_hex(FILE *f, const char *str, int len)
@@ -74,19 +78,293 @@ static void print_xattr(FILE *f, char *name, char *value, size_t value_len,
 	    (strcmp(name, "system.data") == 0))
 		value_len = 0;
 	if (value_len != 0 &&
-	    (!(print_flags & PRINT_XATTR_STATFMT) || (value_len < 40))) {
+	    (!(print_flags & PRINT_XATTR_STATFMT) || (value_len < 120))) {
 		fprintf(f, " = ");
 		print_xattr_string(f, value, value_len, print_flags);
 	}
 	fputc('\n', f);
 }
 
-static int dump_attr(char *name, char *value, size_t value_len, void *data)
+static int print_acl(FILE *f, char *name, void *value, size_t value_len)
 {
+	const ext4_acl_header *ext_acl = (const ext4_acl_header *)value;
+	const char *cp;
+
+	if (!value ||
+	    (value_len < sizeof(ext4_acl_header)) ||
+	    (ext_acl->a_version != ext2fs_cpu_to_le32(EXT4_ACL_VERSION)))
+		return -EINVAL;
+
+	cp = (const char *)value + sizeof(ext4_acl_header);
+	value_len -= sizeof(ext4_acl_header);
+
+	fprintf(f, "%s:\n", name);
+
+	while (value_len > 0) {
+		const ext4_acl_entry *disk_entry = (const ext4_acl_entry *)cp;
+		posix_acl_xattr_entry entry;
+		entry.e_tag = ext2fs_le16_to_cpu(disk_entry->e_tag);
+		entry.e_perm = ext2fs_le16_to_cpu(disk_entry->e_perm);
+
+		switch(entry.e_tag) {
+			case ACL_USER_OBJ:
+			case ACL_USER:
+				fprintf(f, "    user:");
+				if (entry.e_tag == ACL_USER)
+					fprintf(f, "%u",
+					ext2fs_le32_to_cpu(disk_entry->e_id));
+				break;
+
+			case ACL_GROUP_OBJ:
+			case ACL_GROUP:
+				fprintf(f, "    group:");
+				if (entry.e_tag == ACL_GROUP)
+					fprintf(f, "%u",
+					ext2fs_le32_to_cpu(disk_entry->e_id));
+				break;
+
+			case ACL_MASK:
+				fprintf(f, "    mask:");
+				break;
+
+			case ACL_OTHER:
+				fprintf(f, "    other:");
+				break;
+
+			default:
+				fprintf(stderr,
+					"%s: error: invalid tag %x in ACL\n",
+					debug_prog_name, entry.e_tag);
+				return -EINVAL;
+		}
+		fprintf(f, ":");
+		fprintf(f, (entry.e_perm & ACL_READ) ? "r" : "-");
+		fprintf(f, (entry.e_perm & ACL_WRITE) ? "w" : "-");
+		fprintf(f, (entry.e_perm & ACL_EXECUTE) ? "x" : "-");
+		fprintf(f, "\n");
+
+		if (entry.e_tag == ACL_USER || entry.e_tag == ACL_GROUP) {
+			cp += sizeof(ext4_acl_entry);
+			value_len -= sizeof(ext4_acl_entry);
+		} else {
+			cp += sizeof(ext4_acl_entry_short);
+			value_len -= sizeof(ext4_acl_entry_short);
+		}
+	}
+
+	return 0;
+}
+
+static int print_fidstr(FILE *f, char *name, void *value, size_t value_len)
+{
+	struct filter_fid_old *ff = value;
+	int stripe;
+
+	/* Since Lustre 2.4 only the parent FID is stored in filter_fid,
+	 * and the self fid is stored in the LMA and is printed below. */
+	if (value_len < sizeof(ff->ff_parent)) {
+		fprintf(stderr, "%s: error: xattr '%s' too small (%zu bytes)\n",
+			debug_prog_name, name, value_len);
+		return -EINVAL;
+	}
+	fid_le_to_cpu(&ff->ff_parent, &ff->ff_parent);
+	stripe = fid_ver(&ff->ff_parent); /* stripe index is stored in f_ver */
+	ff->ff_parent.f_ver = 0;
+
+	fprintf(f, "fid: ");
+	/* Old larger filter_fid should only ever be used with seq = 0.
+	 * FID-on-OST should use LMA for FID_SEQ_NORMAL OST objects. */
+	if (value_len == sizeof(*ff))
+		fprintf(f, "objid=%llu seq=%llu ",
+			ext2fs_le64_to_cpu(ff->ff_objid),
+			ext2fs_le64_to_cpu(ff->ff_seq));
+
+	fprintf(f, "parent="DFID" stripe=%u", PFID(&ff->ff_parent), stripe);
+	if (value_len >= sizeof(struct filter_fid_210)) {
+		struct filter_fid_210 *ff_new = value;
+
+		fprintf(f, " stripe_size=%u stripe_count=%u",
+			ext2fs_le32_to_cpu(ff_new->ff_stripe_size),
+			ext2fs_le32_to_cpu(ff_new->ff_stripe_count));
+		if (ff_new->ff_pfl_id != 0)
+			fprintf(f, " component_id=%u component_start=%llu "
+				"component_end=%llu",
+				ext2fs_le32_to_cpu(ff_new->ff_pfl_id),
+				ext2fs_le64_to_cpu(ff_new->ff_pfl_start),
+				ext2fs_le64_to_cpu(ff_new->ff_pfl_end));
+	}
+
+	if (value_len >= sizeof(struct filter_fid)) {
+		struct filter_fid *ff_new = value;
+
+		fprintf(f, " layout_version=%u range=%u",
+			ext2fs_le32_to_cpu(ff_new->ff_layout_version),
+			ext2fs_le32_to_cpu(ff_new->ff_range));
+	}
+
+	fprintf(f, "\n");
+
+	return 0;
+}
+
+static int print_lmastr(FILE *f, char *name, void *value, size_t value_len)
+{
+	struct lustre_mdt_attrs *lma = value;
+	struct lustre_ost_attrs *loa = value;
+
+	if (value_len < offsetof(typeof(*lma), lma_self_fid) +
+			sizeof(lma->lma_self_fid)) {
+		fprintf(stderr, "%s: error: xattr '%s' too small (%zu bytes)\n",
+			debug_prog_name, name, value_len);
+		return -EINVAL;
+	}
+	fid_le_to_cpu(&lma->lma_self_fid, &lma->lma_self_fid);
+	fprintf(f, "lma: fid="DFID" compat=%x incompat=%x\n",
+		PFID(&lma->lma_self_fid), ext2fs_le32_to_cpu(lma->lma_compat),
+		ext2fs_le32_to_cpu(lma->lma_incompat));
+	if (value_len >= offsetof(typeof(*loa), loa_pfl_end) +
+		  sizeof(loa->loa_pfl_end)) {
+		int idx;
+		int cnt;
+
+		fid_le_to_cpu(&loa->loa_parent_fid, &loa->loa_parent_fid);
+		idx = loa->loa_parent_fid.f_ver & PFID_STRIPE_COUNT_MASK;
+		cnt = loa->loa_parent_fid.f_ver >> PFID_STRIPE_IDX_BITS;
+		loa->loa_parent_fid.f_ver = 0;
+
+		fprintf(f, "  fid: parent="DFID" stripe=%u stripe_size=%u "
+			"stripe_count=%u", PFID(&loa->loa_parent_fid), idx,
+			ext2fs_le32_to_cpu(loa->loa_stripe_size), cnt);
+		if (loa->loa_pfl_id != 0)
+			fprintf(f, " component_id=%u component_start=%llu "
+				"component_end=%llu",
+				ext2fs_le32_to_cpu(loa->loa_pfl_id),
+				ext2fs_le64_to_cpu(loa->loa_pfl_start),
+				ext2fs_le64_to_cpu(loa->loa_pfl_end));
+		fprintf(f, "\n");
+	}
+
+	return 0;
+}
+
+static void print_name(FILE *f, const char *cp, int len)
+{
+	unsigned char ch;
+
+	while (len--) {
+		ch = *cp++;
+		if (!isprint(ch) || ch == '\\') {
+			if (f)
+				fprintf(f, "\\x%02x", ch);
+		} else {
+			if (f)
+				fputc(ch, f);
+		}
+	}
+}
+
+static int print_linkea(FILE *f, char *name, void *value, size_t value_len)
+{
+	struct link_ea_header *leh = value;
+	struct link_ea_entry *lee;
+	int i;
+
+	if (value_len < sizeof(*leh) ||
+	    value_len < ext2fs_le64_to_cpu(leh->leh_len)) {
+		fprintf(stderr, "%s: error: xattr '%s' too small (%zu bytes)\n",
+			debug_prog_name, name, value_len);
+		return -EINVAL;
+	}
+
+	if (ext2fs_le32_to_cpu(leh->leh_magic) != LINK_EA_MAGIC) {
+		fprintf(stderr, "%s: error: xattr '%s' bad magic '%#x'\n",
+			debug_prog_name, name,
+			ext2fs_le32_to_cpu(leh->leh_magic));
+		return -EINVAL;
+	}
+
+	lee = leh->leh_entry;
+	value_len -= sizeof(*leh);
+
+	for (i = 0; i < ext2fs_le32_to_cpu(leh->leh_reccount) &&
+		    value_len > 2; i++) {
+		int reclen = lee->lee_reclen[0] << 8 | lee->lee_reclen[1];
+		struct lu_fid pfid;
+
+		if (value_len < sizeof(*lee) || value_len < reclen) {
+			fprintf(stderr,
+				"%s: error: xattr '%s' entry %d too small "
+				"(%zu bytes)\n",
+				debug_prog_name, name, i, value_len);
+			return -EINVAL;
+		}
+
+		memcpy(&pfid, &lee->lee_parent_fid, sizeof(pfid));
+		fid_be_to_cpu(&pfid, &pfid);
+		fprintf(f, "%s idx=%u parent="DFID" name='",
+			i == 0 ? "linkea:" : "         ", i, PFID(&pfid));
+		print_name(f, lee->lee_name, reclen - (int)sizeof(*lee));
+		fprintf(f, "'\n");
+
+		lee = (struct link_ea_entry *)((char *)lee + reclen);
+		value_len -= reclen;
+	}
+
+	return 0;
+}
+
+struct dump_attr_pretty {
+	const char *dap_name;
+	int (*dap_print)(FILE *f, char *name, void *value, size_t value_len);
+} dumpers[] = {
+	{
+		.dap_name = "system.posix_acl_access",
+		.dap_print = print_acl,
+	},
+	{
+		.dap_name = "system.posix_acl_default",
+		.dap_print = print_acl,
+	},
+	{
+		.dap_name = "trusted.fid",
+		.dap_print = print_fidstr,
+	},
+	{
+		.dap_name = "trusted.lma",
+		.dap_print = print_lmastr,
+	},
+	{
+		.dap_name = "trusted.link",
+		.dap_print = print_linkea,
+	},
+	{
+		.dap_name = NULL,
+	}
+};
+
+static int dump_attr(char *name, char *value, size_t value_len,
+		     ext2_ino_t inode_num, void *data)
+{
+	struct dump_attr_pretty *dap;
 	FILE *out = data;
+	int rc = 0;
 
 	fprintf(out, "  ");
-	print_xattr(out, name, value, value_len, PRINT_XATTR_STATFMT);
+	if (EXT2_HAS_INCOMPAT_FEATURE(current_fs->super,
+				      EXT4_FEATURE_INCOMPAT_EA_INODE) &&
+				      inode_num != 0) {
+		fprintf(out, "inode <%u> ", inode_num);
+	}
+
+	for (dap = dumpers; dap->dap_name != NULL; dap++) {
+		if (strcmp(name, dap->dap_name) == 0) {
+			rc = dap->dap_print(out, name, value, value_len);
+			break;
+		}
+	}
+	if (dap->dap_name == NULL || rc)
+		print_xattr(out, name, value, value_len, PRINT_XATTR_STATFMT);
+
 	return 0;
 }
 

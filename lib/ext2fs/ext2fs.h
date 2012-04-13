@@ -1408,7 +1408,8 @@ errcode_t ext2fs_xattrs_read_inode(struct ext2_xattr_handle *handle,
 				   struct ext2_inode_large *inode);
 errcode_t ext2fs_xattrs_iterate(struct ext2_xattr_handle *h,
 				int (*func)(char *name, char *value,
-					    size_t value_len, void *data),
+					    size_t value_len,
+					    ext2_ino_t inode_num, void *data),
 				void *data);
 errcode_t ext2fs_xattr_get(struct ext2_xattr_handle *h, const char *key,
 			   void **value, size_t *value_len);
