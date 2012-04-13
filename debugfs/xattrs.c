@@ -17,12 +17,15 @@ extern char *optarg;
 #include "support/cstring.h"
 
 #include "debugfs.h"
+#include "ext2fs/lfsck.h"
 
 #define PRINT_XATTR_HEX		0x01
 #define PRINT_XATTR_RAW		0x02
 #define PRINT_XATTR_C		0x04
 #define PRINT_XATTR_STATFMT	0x08
 #define PRINT_XATTR_NOQUOTES	0x10
+
+extern const char *debug_prog_name;
 
 /* Dump extended attributes */
 static void print_xattr_hex(FILE *f, const char *str, int len)
@@ -81,12 +84,106 @@ static void print_xattr(FILE *f, char *name, char *value, size_t value_len,
 	fputc('\n', f);
 }
 
-static int dump_attr(char *name, char *value, size_t value_len, void *data)
+static void print_fidstr(FILE *f, void *name, void *value,
+			 ext2_ino_t inode_num, size_t value_len)
+{
+	struct filter_fid_old *ff = value;
+	int stripe;
+
+	/* Since Lustre 2.4 only the parent FID is stored in filter_fid,
+	 * and the self fid is stored in the LMA and is printed below. */
+	if (value_len < sizeof(ff->ff_parent)) {
+		fprintf(stderr, "%s: error: filter_fid for inode %u smaller "
+			"than expected (%lu bytes).\n",
+			debug_prog_name, inode_num, value_len);
+		return;
+	}
+	fid_le_to_cpu(&ff->ff_parent, &ff->ff_parent);
+	stripe = fid_ver(&ff->ff_parent); /* stripe index is stored in f_ver */
+	ff->ff_parent.f_ver = 0;
+
+	fprintf(f, "  fid: ");
+	/* Old larger filter_fid should only ever be used with seq = 0.
+	 * FID-on-OST should use LMA for FID_SEQ_NORMAL OST objects. */
+	if (value_len == sizeof(*ff))
+		fprintf(f, "objid=%llu seq=%llu ",
+			ext2fs_le64_to_cpu(ff->ff_objid),
+			ext2fs_le64_to_cpu(ff->ff_seq));
+
+	fprintf(f, "parent="DFID" stripe=%u", PFID(&ff->ff_parent), stripe);
+	if (value_len > sizeof(*ff)) {
+		struct filter_fid *ff_new = value;
+
+		fprintf(f, " stripe_size=%u stripe_count=%u",
+			ext2fs_le32_to_cpu(ff_new->ff_stripe_size),
+			ext2fs_le32_to_cpu(ff_new->ff_stripe_count));
+		if (ff_new->ff_pfl_id != 0)
+			fprintf(f, " component_id=%u component_start=%llu "
+				"component_end=%llu",
+				ext2fs_le32_to_cpu(ff_new->ff_pfl_id),
+				ext2fs_le64_to_cpu(ff_new->ff_pfl_start),
+				ext2fs_le64_to_cpu(ff_new->ff_pfl_end));
+	}
+	fprintf(f, "\n");
+}
+
+static void print_lmastr(FILE *f, void *name, void *value,
+			 ext2_ino_t inode_num, size_t value_len)
+{
+	struct lustre_mdt_attrs *lma = value;
+	struct lustre_ost_attrs *loa = value;
+
+	if (value_len < offsetof(typeof(*lma), lma_self_fid) +
+			sizeof(lma->lma_self_fid)) {
+		fprintf(stderr, "%s: error: LMA for inode %u smaller than "
+			"expected (%lu bytes).\n",
+			debug_prog_name, inode_num, value_len);
+		return;
+	}
+	fid_le_to_cpu(&lma->lma_self_fid, &lma->lma_self_fid);
+	fprintf(f, "  lma: fid="DFID" compat=%x incompat=%x\n",
+		PFID(&lma->lma_self_fid), ext2fs_le32_to_cpu(lma->lma_compat),
+		ext2fs_le32_to_cpu(lma->lma_incompat));
+	if (value_len >= offsetof(typeof(*loa), loa_pfl_end) +
+		  sizeof(loa->loa_pfl_end)) {
+		int idx;
+		int cnt;
+
+		fid_le_to_cpu(&loa->loa_parent_fid, &loa->loa_parent_fid);
+		idx = loa->loa_parent_fid.f_ver & PFID_STRIPE_COUNT_MASK;
+		cnt = loa->loa_parent_fid.f_ver >> PFID_STRIPE_IDX_BITS;
+		loa->loa_parent_fid.f_ver = 0;
+
+		fprintf(f, "  fid: parent="DFID" stripe=%u stripe_size=%u "
+			"stripe_count=%u", PFID(&loa->loa_parent_fid), idx,
+			ext2fs_le32_to_cpu(loa->loa_stripe_size), cnt);
+		if (loa->loa_pfl_id != 0)
+			fprintf(f, " component_id=%u component_start=%llu "
+				"component_end=%llu",
+				ext2fs_le32_to_cpu(loa->loa_pfl_id),
+				ext2fs_le64_to_cpu(loa->loa_pfl_start),
+				ext2fs_le64_to_cpu(loa->loa_pfl_end));
+		fprintf(f, "\n");
+	}
+}
+
+static int dump_attr(char *name, char *value, size_t value_len,
+		     ext2_ino_t inode_num, void *data)
 {
 	FILE *out = data;
 
 	fprintf(out, "  ");
 	print_xattr(out, name, value, value_len, PRINT_XATTR_STATFMT);
+	if (!strncmp(name, EXT2_ATTR_INDEX_TRUSTED_PREFIX LUSTRE_XATTR_OST_FID,
+		     strlen(name)) ||
+	    !strncmp(name, EXT2_ATTR_INDEX_LUSTRE_PREFIX LUSTRE_XATTR_OST_FID,
+		     strlen(name)))
+		print_fidstr(out, name, value, inode_num, value_len);
+	if (!strncmp(name, EXT2_ATTR_INDEX_TRUSTED_PREFIX LUSTRE_XATTR_MDT_LMA,
+		     strlen(name)) ||
+	    !strncmp(name, EXT2_ATTR_INDEX_LUSTRE_PREFIX LUSTRE_XATTR_MDT_LMA,
+		     strlen(name)))
+		print_lmastr(out, name, value, inode_num, value_len);
 	return 0;
 }
 
