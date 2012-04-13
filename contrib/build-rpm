@@ -43,6 +43,9 @@ if [ -z "$DISTRO" ]; then
     if grep "Fedora " /etc/issue; then
         DISTRO="Fedora"
     fi
+    if grep "SUSE Linux Enterprise Server " /etc/issue; then
+        DISTRO="SUSE LINUX"
+    fi
 fi
 if [ -z "$DISTRO" ]; then
     echo "Could not determine the distribution.  Please install the lsb_release binary"
@@ -53,6 +56,9 @@ if [ -z "$RELEASE" ]; then
     case "$DISTRO" in
         Fedora)
             RELEASE=$(grep Fedora /etc/issue | sed -e 's/Fedora release //' -e 's/ .*//')
+        ;;
+        SUSE\ LINUX)
+            RELEASE=$(grep SUSE /etc/issue | sed -e 's/SUSE Linux Enterprise Server //' -e 's/ .*//')
         ;;
     esac
 fi
