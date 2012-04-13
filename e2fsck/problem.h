@@ -618,6 +618,9 @@ struct problem_context {
  */
 #define PR_1_CLEAR_EXTRA_ISIZE		0x010088
 
+/* invalid inode creation time */
+#define PR_1_CRTIME_BAD			0x010089
+
 
 /*
  * Pass 1b errors
@@ -889,6 +892,9 @@ struct problem_context {
 
 /* i_file_acl_hi should be zero */
 #define PR_2_I_FILE_ACL_HI_ZERO		0x020048
+
+/* Inode completely corrupt */
+#define PR_2_INODE_TOOBAD		0x020049
 
 /*
  * Pass 3 errors
