@@ -51,6 +51,7 @@ e2fsck/tst_problem
 e2fsck/tst_refcount
 e2fsck/tst_region
 e2fsprogs.spec
+e2fsprogs-RHEL-6.spec
 intl/charset.alias
 intl/libgnuintl.h
 intl/libintl.a
