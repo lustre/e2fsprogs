@@ -168,6 +168,7 @@ struct resource_track {
 #define E2F_OPT_FRAGCHECK	0x0800
 #define E2F_OPT_JOURNAL_ONLY	0x1000 /* only replay the journal */
 #define E2F_OPT_DISCARD		0x2000
+#define E2F_OPT_VERBOSE		0x4000
 
 /*
  * E2fsck flags
@@ -356,6 +357,13 @@ struct e2fsck_struct {
 	 * Ext4 quota support
 	 */
 	quota_ctx_t qctx;
+
+	/* lustre support */
+	int			lustre_devtype;
+	char			*lustre_mdsdb;
+	char			*lustre_ostdb;
+	struct lfsck_outdb_info	*lfsck_oinfo;
+
 #ifdef RESOURCE_TRACK
 	/*
 	 * For timing purposes
@@ -442,6 +450,7 @@ extern void e2fsck_pass2(e2fsck_t ctx);
 extern void e2fsck_pass3(e2fsck_t ctx);
 extern void e2fsck_pass4(e2fsck_t ctx);
 extern void e2fsck_pass5(e2fsck_t ctx);
+extern void e2fsck_pass6(e2fsck_t ctx);
 
 /* e2fsck.c */
 extern errcode_t e2fsck_allocate_context(e2fsck_t *ret);

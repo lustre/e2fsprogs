@@ -46,6 +46,8 @@ e2fsck/e2fsck.conf.5
 e2fsck/e2fsck.shared
 e2fsck/e2fsck.static
 e2fsck/gen_crc32table
+e2fsck/lfsck
+e2fsck/lfsck.8
 e2fsck/prof_err.c
 e2fsck/prof_err.h
 e2fsck/tst_crc32

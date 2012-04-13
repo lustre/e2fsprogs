@@ -10,6 +10,7 @@
  */
 
 #define _XOPEN_SOURCE 600 /* for inclusion of sa_handler in Solaris */
+#define _GNU_SOURCE
 
 #include "config.h"
 #include <stdio.h>
@@ -45,6 +46,9 @@ extern int optind;
 #ifdef HAVE_DIRENT_H
 #include <dirent.h>
 #endif
+#ifdef HAVE_LIMITS_H
+#include <limits.h>
+#endif
 
 #include "e2p/e2p.h"
 #include "et/com_err.h"
@@ -52,6 +56,17 @@ extern int optind;
 #include "e2fsck.h"
 #include "problem.h"
 #include "../version.h"
+
+#include "ext2fs/lfsck.h"
+
+static struct option long_options[] = {
+#ifdef HAVE_LFSCK
+	{ "mdsdb", 1, NULL, 1 },
+	{ "mdtdb", 1, NULL, 1 },
+	{ "ostdb", 1, NULL, 2 },
+#endif
+	{ 0, 0, 0, 0 }
+};
 
 /* Command line options */
 static int cflag;		/* check disk */
@@ -392,6 +407,15 @@ static void check_if_skip(e2fsck_t ctx)
 			     fs->super->s_checkinterval*2))
 			reason = 0;
 	}
+#ifdef HAVE_LFSCK
+	if (ctx->lustre_devtype & LUSTRE_TYPE) {
+		if (!reason || ctx->options & E2F_OPT_READONLY)
+			ctx->lustre_devtype |= LUSTRE_ONLY;
+		if (!reason)
+			reason = _(" lustre database creation");
+	}
+#endif
+
 	if (reason) {
 		log_out(ctx, "%s", ctx->device_name);
 		log_out(ctx, reason, reason_arg);
@@ -459,6 +483,15 @@ static void check_if_skip(e2fsck_t ctx)
 	log_out(ctx, "\n");
 skip:
 	ext2fs_close_free(&ctx->fs);
+#ifdef HAVE_LFSCK
+	if (ctx->lustre_mdsdb)
+		free(ctx->lustre_mdsdb);
+	if (ctx->lustre_ostdb)
+		free(ctx->lustre_ostdb);
+	if (ctx->lfsck_oinfo)
+		e2fsck_lfsck_cleanupdb(ctx);
+#endif /* HAVE_LFSCK */
+
 	e2fsck_free_context(ctx);
 	exit(FSCK_OK);
 }
@@ -830,6 +863,7 @@ static errcode_t PRS(int argc, char *argv[], e2fsck_t *ret_ctx)
 {
 	int		flush = 0;
 	int		c, fd;
+	int		option_index;
 #ifdef MTRACE
 	extern void	*mallwatch;
 #endif
@@ -880,8 +914,75 @@ static errcode_t PRS(int argc, char *argv[], e2fsck_t *ret_ctx)
 
 	ctx->inode_badness_threshold = BADNESS_THRESHOLD;
 
-	while ((c = getopt (argc, argv, "panyrcC:B:dE:fvtFVM:b:I:j:P:l:L:N:SsDk")) != EOF)
+	ctx->lustre_devtype = LUSTRE_NULL;
+
+	while ((c = getopt_long(argc, argv,
+				"panyrcC:B:dE:fvtFVM:b:I:j:P:l:L:N:SsDk",
+				long_options, &option_index)) != EOF)
 		switch (c) {
+#ifdef HAVE_LFSCK
+		case 1: {
+			char *dbpath, *tmp;
+
+			if (!optarg)
+				usage(ctx);
+
+			dbpath = malloc(PATH_MAX);
+			if (dbpath == NULL) {
+				fprintf(stderr, "Out of memory\n");
+				exit(1);
+			}
+			tmp = malloc(PATH_MAX);
+			if (tmp == NULL) {
+				fprintf(stderr, "Out of memory\n");
+				exit(1);
+			}
+
+			strcpy(tmp, optarg);
+			if (realpath(my_dirname(tmp), dbpath) == NULL) {
+				fprintf(stderr, "Failure to resolve path %s\n",
+					optarg);
+				exit(1);
+			}
+
+			strcpy(tmp, optarg);
+			sprintf(dbpath+strlen(dbpath), "/%s", my_basename(tmp));
+			ctx->lustre_mdsdb = dbpath;
+			ctx->lustre_devtype |= LUSTRE_MDS;
+
+			free(tmp);
+			break;
+		}
+		case 2: {
+			char *dbpath, *tmp;
+
+			dbpath = malloc(PATH_MAX);
+			if (dbpath == NULL) {
+				fprintf(stderr, "Out of memory\n");
+				exit(1);
+			}
+			tmp = malloc(PATH_MAX);
+			if (tmp == NULL) {
+				fprintf(stderr, "Out of memory\n");
+				exit(1);
+			}
+
+			strcpy(tmp, optarg);
+			if (realpath(my_dirname(tmp), dbpath) == NULL) {
+				fprintf(stderr, "Failure to resolve path %s\n",
+					optarg);
+				exit(1);
+			}
+
+			strcpy(tmp, optarg);
+			sprintf(dbpath+strlen(dbpath), "/%s", my_basename(tmp));
+			ctx->lustre_ostdb = dbpath;
+			ctx->lustre_devtype |= LUSTRE_OST;
+
+			free(tmp);
+			break;
+		}
+#endif /* HAVE_LFSCK */
 		case 'C':
 			ctx->progress = e2fsck_update_progress;
 			res = sscanf(optarg, "%d", &ctx->progress_fd);
@@ -997,6 +1098,7 @@ static errcode_t PRS(int argc, char *argv[], e2fsck_t *ret_ctx)
 			break;
 		case 'v':
 			verbose = 1;
+			ctx->options |= E2F_OPT_VERBOSE;
 			break;
 		case 'V':
 			show_version_only = 1;
@@ -1015,6 +1117,25 @@ static errcode_t PRS(int argc, char *argv[], e2fsck_t *ret_ctx)
 		default:
 			usage(ctx);
 		}
+#ifdef HAVE_LFSCK
+	if (ctx->lustre_devtype) {
+		char buf[128];
+
+		if ((ctx->lustre_devtype != LUSTRE_MDS) &&
+		    ctx->lustre_devtype != (LUSTRE_MDS | LUSTRE_OST)) {
+			com_err(ctx->program_name, 0,
+				_("must specify --mdsdb with --ostdb"));
+			usage(ctx);
+		}
+		if (e2fsck_lfsck_check_lustre_version(buf, sizeof(buf)) != 0) {
+			com_err(ctx->program_name, 0,
+				_("this lfsck not allowed on version %s"), buf);
+			com_err(ctx->program_name, 0,
+				_("see 'lctl lfsck_start' to check Lustre"));
+			fatal_error(ctx, 0);
+		}
+	}
+#endif /* HAVE_LFSCK */
 	if (show_version_only)
 		return 0;
 	if (optind != argc - 1)
@@ -1810,7 +1931,13 @@ print_unsupp_features:
 	}
 no_journal:
 
-	if (ctx->qctx) {
+	if (run_result & E2F_FLAG_ABORT) {
+		fatal_error(ctx, _("aborted"));
+	} else if (run_result & E2F_FLAG_CANCEL) {
+		log_out(ctx, _("%s: e2fsck canceled.\n"), ctx->device_name ?
+			ctx->device_name : ctx->filesystem_name);
+		exit_value |= FSCK_CANCELED;
+	} else if (ctx->qctx) {
 		int i, needs_writeout;
 		for (i = 0; i < MAXQUOTAS; i++) {
 			if (qtype != -1 && qtype != i)
@@ -1838,18 +1965,12 @@ no_journal:
 		ext2fs_close_free(&ctx->fs);
 		goto restart;
 	}
-	if (run_result & E2F_FLAG_ABORT)
-		fatal_error(ctx, _("aborted"));
 
 #ifdef MTRACE
 	mtrace_print("Cleanup");
 #endif
 	was_changed = ext2fs_test_changed(fs);
-	if (run_result & E2F_FLAG_CANCEL) {
-		log_out(ctx, _("%s: e2fsck canceled.\n"), ctx->device_name ?
-			ctx->device_name : ctx->filesystem_name);
-		exit_value |= FSCK_CANCELED;
-	} else if (!(ctx->options & E2F_OPT_READONLY)) {
+	if (!(ctx->options & E2F_OPT_READONLY)) {
 		if (ext2fs_test_valid(fs)) {
 			if (!(sb->s_state & EXT2_VALID_FS))
 				exit_value |= FSCK_NONDESTRUCT;
@@ -1916,6 +2037,14 @@ no_journal:
 
 	ext2fs_close_free(&ctx->fs);
 	free(ctx->journal_name);
+#ifdef HAVE_LFSCK
+	if (ctx->lfsck_oinfo)
+		e2fsck_lfsck_cleanupdb(ctx);
+	if (ctx->lustre_mdsdb)
+		free(ctx->lustre_mdsdb);
+	if (ctx->lustre_ostdb)
+		free(ctx->lustre_ostdb);
+#endif /* HAVE_LFSCK */
 
 	e2fsck_free_context(ctx);
 	remove_error_table(&et_ext2_error_table);

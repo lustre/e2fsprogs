@@ -67,6 +67,12 @@
 /* Define to 1 if you have the `chflags' function. */
 #undef HAVE_CHFLAGS
 
+/* Define to 1 if DB4 library is present */
+#undef HAVE_DB4
+
+/* Define to 1 if you have the <db.h> header file. */
+#undef HAVE_DB_H
+
 /* Define if the GNU dcgettext() function is already present or preinstalled.
    */
 #undef HAVE_DCGETTEXT
@@ -200,6 +206,9 @@
 /* Define if your <locale.h> file defines LC_MESSAGES. */
 #undef HAVE_LC_MESSAGES
 
+/* Define to 1 if Lustre lfsck is enabled */
+#undef HAVE_LFSCK
+
 /* Define to 1 if you have the <limits.h> header file. */
 #undef HAVE_LIMITS_H
 
@@ -235,6 +244,12 @@
 
 /* Define to 1 if lseek64 declared in unistd.h */
 #undef HAVE_LSEEK64_PROTOTYPE
+
+/* Define to 1 if lustre/liblustreapi.h found */
+#undef HAVE_LUSTRE_LIBLUSTREAPI_H
+
+/* Define to 1 if lustre/lustreapi.h found */
+#undef HAVE_LUSTRE_LUSTREAPI_H
 
 /* Define to 1 if you have the `mallinfo' function. */
 #undef HAVE_MALLINFO

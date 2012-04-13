@@ -762,7 +762,6 @@ static errcode_t ext2fs_attr_block_get(ext2_filsys fs, struct ext2_inode *inode,
 		}
 		memcpy(buffer, block_buf + entry->e_value_offs,
 		       entry->e_value_size);
-		error = 0;
 	}
 
 cleanup:
