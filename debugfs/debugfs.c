@@ -512,9 +512,47 @@ static void dump_xattr_string(FILE *out, const char *str, int len)
 			fprintf(out, "%02x ", (unsigned char)str[i]);
 }
 
+#ifdef HAVE_LFSCK
+#include "ext2fs/lfsck.h"
+
+static void print_fidstr(FILE *out, ext2_ino_t inode_num, void *data, int len)
+{
+	struct filter_fid *ff = data;
+	struct lu_fid parent_fid = ff->ff_parent;
+	int stripe;
+
+	if (len < sizeof(*ff)) {
+		fprintf(stderr, "%s: error: fid for inode %u smaller than "
+			"expected (%d bytes).\n",
+			debug_prog_name, inode_num, len);
+		return;
+	}
+	lfsck_swab_fid(&parent_fid);
+	stripe = parent_fid.f_ver; /* stripe is stored in f_ver */
+	parent_fid.f_ver = 0;
+	fprintf(out, "  fid: objid=%llu seq=%llu parent="DFID" stripe=%u\n",
+		ext2fs_le64_to_cpu(ff->ff_objid),
+		ext2fs_le64_to_cpu(ff->ff_seq), PFID(&parent_fid), stripe);
+}
+
+static void print_lmastr(FILE *out, ext2_ino_t inode_num, void *data, int len)
+{
+	struct lustre_mdt_attrs *lma = data;
+
+	if (len < sizeof(*lma)) {
+		fprintf(stderr, "%s: error: lma for inode %u smaller than "
+			"expected (%d bytes).\n",
+			debug_prog_name, inode_num, len);
+		return;
+	}
+	lfsck_swab_fid(&lma->lma_self_fid);
+	fprintf(out, "  lma: fid="DFID"\n", PFID(&lma->lma_self_fid));
+}
+#endif /* HAVE_LFSCK */
+
 static void internal_dump_inode_extra(FILE *out,
 				      const char *prefix EXT2FS_ATTR((unused)),
-				      ext2_ino_t inode_num EXT2FS_ATTR((unused)),
+				      ext2_ino_t inode_num,
 				      struct ext2_inode_large *inode)
 {
 	struct ext2_ext_attr_entry *entry;
@@ -566,6 +604,24 @@ static void internal_dump_inode_extra(FILE *out,
 						  start + entry->e_value_offs,
 						  entry->e_value_size);
 			fprintf(out, "\" (%u)\n", entry->e_value_size);
+#ifdef HAVE_LFSCK
+			/* Special decoding for Lustre filter-fid */
+			if ((entry->e_name_index == EXT2_ATTR_INDEX_TRUSTED ||
+			     entry->e_name_index == EXT2_ATTR_INDEX_LUSTRE) &&
+			    !strncmp(EXT2_EXT_ATTR_NAME(entry),
+				     "fid", entry->e_name_len))
+				print_fidstr(out, inode_num,
+					     start + entry->e_value_offs,
+					     entry->e_value_size);
+			/* Special decoding for Lustre lma */
+			if ((entry->e_name_index == EXT2_ATTR_INDEX_TRUSTED ||
+			     entry->e_name_index == EXT2_ATTR_INDEX_LUSTRE) &&
+			    !strncmp(EXT2_EXT_ATTR_NAME(entry),
+				     "lma", entry->e_name_len))
+				print_lmastr(out, inode_num,
+					     start + entry->e_value_offs,
+					     entry->e_value_size);
+#endif
 			entry = next;
 		}
 	}
