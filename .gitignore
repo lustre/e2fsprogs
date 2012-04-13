@@ -56,6 +56,8 @@ e2fsck/tst_refcount
 e2fsck/tst_region
 e2fsprogs-RHEL-6.spec
 e2fsprogs-SUSE_LINUX-11.spec
+e2scan/e2scan
+e2scan/e2scan.8
 ext2ed/ext2ed.conf
 ext2ed/ext2ed.8
 intl/charset.alias

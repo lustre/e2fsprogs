@@ -13,6 +13,7 @@ po/stamp-cat-id
 po/cat-id-tbl.c
 Meta
 e2fsck
+e2scan
 ext2ed
 debugfs
 misc
