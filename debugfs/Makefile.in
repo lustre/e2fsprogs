@@ -43,6 +43,8 @@ STATIC_DEPLIBS= $(STATIC_LIBEXT2FS) $(DEPSTATIC_LIBSS) \
 		$(DEPSTATIC_LIBCOM_ERR) $(DEPSTATIC_LIBUUID) \
 		$(DEPSTATIC_LIBE2P)
 
+@LFSCK_CMT@LUSTRE_INC=-I @LUSTRE@/lustre/include -I @LUSTRE@/include -I @LUSTRE@/libcfs/include -Wall
+
 .c.o:
 	$(E) "	CC $<"
 	$(Q) $(CC) -c $(ALL_CFLAGS) $< -o $@
