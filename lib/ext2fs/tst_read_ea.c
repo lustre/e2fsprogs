@@ -1,5 +1,5 @@
 /*
- * tst_getsize.c --- this function tests the getsize function
+ * tst_read_ea.c --- tests the extended attribute functions
  *
  * %Begin-Header%
  * This file may be redistributed under the terms of the GNU Public
