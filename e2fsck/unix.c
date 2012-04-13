@@ -753,6 +753,12 @@ static void parse_extended_opts(e2fsck_t ctx, const char *opts)
 				extended_usage++;
 				continue;
 			}
+		} else if (strcmp(token, "expand_extra_isize") == 0) {
+			ctx->flags |= E2F_FLAG_EXPAND_EISIZE;
+			if (arg) {
+				extended_usage++;
+				continue;
+			}
 		} else if (strcmp(token, "journal_only") == 0) {
 			if (arg) {
 				extended_usage++;
@@ -791,6 +797,7 @@ static void parse_extended_opts(e2fsck_t ctx, const char *opts)
 		fputs(("\tnodiscard\n"), stderr);
 		fputs(("\tshared=<preserve|lost+found|delete>\n"), stderr);
 		fputs(("\tclone=<dup|zero>\n"), stderr);
+		fputs(("\texpand_extra_isize\n"), stderr);
 		fputc('\n', stderr);
 		exit(1);
 	}
@@ -1664,6 +1671,52 @@ print_unsupp_features:
 	if (ctx->flags & E2F_FLAG_SIGNAL_MASK)
 		fatal_error(ctx, 0);
 	check_if_skip(ctx);
+
+	if (EXT2_GOOD_OLD_INODE_SIZE + sb->s_want_extra_isize >
+							EXT2_INODE_SIZE(sb)) {
+		if (fix_problem(ctx, PR_0_WANT_EXTRA_ISIZE_INVALID, &pctx))
+			sb->s_want_extra_isize =
+				sizeof(struct ext2_inode_large) -
+				EXT2_GOOD_OLD_INODE_SIZE;
+	}
+	if (EXT2_GOOD_OLD_INODE_SIZE + sb->s_min_extra_isize >
+							EXT2_INODE_SIZE(sb)) {
+		if (fix_problem(ctx, PR_0_MIN_EXTRA_ISIZE_INVALID, &pctx))
+			sb->s_min_extra_isize = 0;
+	}
+	if (EXT2_INODE_SIZE(sb) > EXT2_GOOD_OLD_INODE_SIZE) {
+		ctx->want_extra_isize = sizeof(struct ext2_inode_large) -
+						     EXT2_GOOD_OLD_INODE_SIZE;
+		ctx->min_extra_isize = ~0L;
+		if (EXT2_HAS_RO_COMPAT_FEATURE(sb,
+				       EXT4_FEATURE_RO_COMPAT_EXTRA_ISIZE)) {
+			if (ctx->want_extra_isize < sb->s_want_extra_isize)
+				ctx->want_extra_isize = sb->s_want_extra_isize;
+			if (ctx->want_extra_isize < sb->s_min_extra_isize)
+				ctx->want_extra_isize = sb->s_min_extra_isize;
+		}
+	} else {
+		/* Leave extra_isize set, it is harmless, and clearing it
+		 * here breaks some regression tests by printing an extra
+		 * message to the output for very little value. */
+		sb->s_want_extra_isize = 0;
+		sb->s_min_extra_isize = 0;
+		ctx->flags &= ~E2F_FLAG_EXPAND_EISIZE;
+	}
+
+	if (ctx->options & E2F_OPT_READONLY) {
+		if (ctx->flags & (E2F_FLAG_EXPAND_EISIZE)) {
+			fprintf(stderr, _("Cannot enable EXTRA_ISIZE feature "
+					  "on read-only filesystem\n"));
+			exit(1);
+		}
+	} else {
+		if (sb->s_want_extra_isize > sb->s_min_extra_isize &&
+		    (sb->s_feature_ro_compat &
+		     EXT4_FEATURE_RO_COMPAT_EXTRA_ISIZE))
+			ctx->flags |= E2F_FLAG_EXPAND_EISIZE;
+	}
+
 	check_resize_inode(ctx);
 	if (bad_blocks_file)
 		read_bad_blocks_file(ctx, bad_blocks_file, replace_bad_blocks);
