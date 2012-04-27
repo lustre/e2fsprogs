@@ -92,13 +92,13 @@ typedef __U64_TYPEDEF __u64;
 #if (@SIZEOF_INT@ == 8)
 typedef unsigned int	__u64;
 #else
-#if (@SIZEOF_LONG@ == 8)
-typedef unsigned long	__u64;
-#else
 #if (@SIZEOF_LONG_LONG@ == 8)
 typedef unsigned long long	__u64;
-#endif /* SIZEOF_LONG_LONG == 8 */
+#else
+#if (@SIZEOF_LONG@ == 8)
+typedef unsigned long	__u64;
 #endif /* SIZEOF_LONG == 8 */
+#endif /* SIZEOF_LONG_LONG == 8 */
 #endif /* SIZEOF_INT == 8 */
 #endif /* __U64_TYPEDEF */
 
