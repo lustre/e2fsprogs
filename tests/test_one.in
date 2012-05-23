@@ -49,7 +49,7 @@ else
 	test_description=
 fi
 
-rm -f $test_name.ok $test_name.failed
+rm -f $test_name.ok $test_name.failed $test_name.log
 #echo -e -n "$test_name: $test_description:\r"
 
 if [ -f $test_dir/script ]; then
@@ -62,8 +62,8 @@ else
 	else
 		echo "$test_name: Missing test script $default_script!"
 	fi
-	[ -f $test_name.failed ] && cat $test_name.failed
 fi
+[ -f $test_name.failed ] && grep . $test_name.failed
 
 if [ "$SKIP_UNLINK" != "true" ] ; then
 	rm -f $TMPFILE
