@@ -1482,7 +1482,7 @@ Optional Features:
   --disable-testio-debug  disable the use of the test I/O manager for debugging
   --disable-libuuid	  do not build private uuid library
   --disable-libblkid	  do not build private blkid library
-  --enable-quota	  enable quota support
+  --disable-quota	  disable quota support
   --disable-backtrace	  disable use backtrace
   --disable-debugfs   	  disable support of debugfs program
   --disable-e2scan   	  disable support of e2scan program
@@ -5281,10 +5281,12 @@ then
 	QUOTA_CMT=#
 	{ $as_echo "$as_me:${as_lineno-$LINENO}: result: Disabling quota support" >&5
 $as_echo "Disabling quota support" >&6; }
+	QUOTA_CMT="#"
 else
 	QUOTA_CMT=
 	$as_echo "#define CONFIG_QUOTA 1" >>confdefs.h
 
+	QUOTA_CMT=
 	{ $as_echo "$as_me:${as_lineno-$LINENO}: result: Enabling quota support" >&5
 $as_echo "Enabling quota support" >&6; }
 	QUOTA_MAN_COMMENT=""
@@ -5292,9 +5294,11 @@ $as_echo "Enabling quota support" >&6; }
 fi
 
 else
-  QUOTA_CMT=#
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: Disabling quota support by default" >&5
-$as_echo "Disabling quota support by default" >&6; }
+  $as_echo "#define CONFIG_QUOTA 1" >>confdefs.h
+
+QUOTA_CMT=
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: Enabling quota support by default" >&5
+$as_echo "Enabling quota support by default" >&6; }
 
 fi
 
