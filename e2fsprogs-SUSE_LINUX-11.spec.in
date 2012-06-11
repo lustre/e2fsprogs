@@ -173,6 +173,7 @@ autoreconf --force --install
   --disable-libuuid \
   --disable-uuidd \
   --disable-fsck \
+  --enable-quota \
   @WITH_LUSTRE@ @ENABLE_LFSCK@ \
   %{?extra_config_flags:%extra_config_flags} CFLAGS="$RPM_OPT_FLAGS"
 make V=1

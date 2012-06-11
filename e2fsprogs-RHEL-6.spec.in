@@ -158,7 +158,7 @@ It was originally inspired by the Multics SubSystem library.
 %build
 %configure --enable-elf-shlibs --enable-nls --disable-uuidd --disable-fsck \
 	   --disable-e2initrd-helper --disable-libblkid --disable-libuuid \
-	   --disable-defrag --enable-symlink-install \
+	   --disable-defrag --enable-symlink-install --enable-quota \
 	   @WITH_LUSTRE@ @ENABLE_LFSCK@ \
 	   %{?extra_config_flags:%extra_config_flags}
 make %{?_smp_mflags}
