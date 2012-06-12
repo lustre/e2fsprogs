@@ -98,6 +98,7 @@ errcode_t quota_remove_inode(ext2_filsys fs, int qtype)
 		quota_inode_truncate(fs, qf_ino);
 
 	ext2fs_mark_super_dirty(fs);
+	fs->flags &= ~EXT2_FLAG_SUPER_ONLY;
 	ext2fs_write_bitmaps(fs);
 	return 0;
 }
@@ -387,7 +388,8 @@ errcode_t quota_compute_usage(quota_ctx_t qctx)
 		}
 		if (ino == 0)
 			break;
-		if (inode.i_links_count) {
+		if (inode.i_links_count &&
+		    (ino == EXT2_ROOT_INO || ino >= EXT2_FIRST_INODE(fs->super))) {
 			space = ext2fs_inode_i_blocks(fs, &inode) << 9;
 			quota_data_add(qctx, &inode, ino, space);
 			quota_data_inodes(qctx, &inode, ino, +1);
