@@ -5348,6 +5348,7 @@ $as_echo "no" >&6; }
         fi
 
 fi
+QUOTA_CMT=
 
 # Check whether --enable-quota was given.
 if test "${enable_quota+set}" = set; then :
