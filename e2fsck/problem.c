@@ -1228,6 +1228,10 @@ static struct e2fsck_problem problem_table[] = {
 	  N_("@i %i creation time (%t) invalid.\n"),
 	  PROMPT_CLEAR, PR_PREEN_OK | PR_NO_OK },
 
+	/* Bad extended attribute value in inode */
+	{ PR_1_SYMLINK_NUL,
+	  N_("@i %i symlink missing NUL terminator.  "),
+	  PROMPT_FIX, 0},
 
 	/* Pass 1b errors */
 
