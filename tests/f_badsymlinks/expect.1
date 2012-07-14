@@ -1,4 +1,8 @@
 Pass 1: Checking inodes, blocks, and sizes
+Inode 13 symlink missing NUL terminator.  Fix? yes
+
+Inode 14 symlink missing NUL terminator.  Fix? yes
+
 Special (device/socket/fifo/symlink) file (inode 18) has immutable
 or append-only flag set.  Clear? yes
 
@@ -17,12 +21,6 @@ Inode 21, i_blocks is 4, should be 2.  Fix? yes
 
 Pass 2: Checking directory structure
 Symlink /empty_link (inode #17) is invalid.
-Clear? yes
-
-Symlink /long_fastlink (inode #13) is invalid.
-Clear? yes
-
-Symlink /long_link (inode #14) is invalid.
 Clear? yes
 
 Symlink /high_fastlink (inode #15) is invalid.
@@ -49,13 +47,13 @@ Clear? yes
 Pass 3: Checking directory connectivity
 Pass 4: Checking reference counts
 Pass 5: Checking group summary information
-Free blocks count wrong for group #0 (1000, counted=1001).
+Free blocks count wrong for group #0 (999, counted=1000).
 Fix? yes
 
-Free blocks count wrong (1000, counted=1001).
+Free blocks count wrong (999, counted=1000).
 Fix? yes
 
 
 test_filesys: ***** FILE SYSTEM WAS MODIFIED *****
-test_filesys: 13/32 files (7.7% non-contiguous), 23/1024 blocks
+test_filesys: 15/32 files (6.7% non-contiguous), 24/1024 blocks
 Exit status is 1
