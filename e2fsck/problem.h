@@ -774,6 +774,9 @@ struct problem_context {
 /* invalid inode creation time */
 #define PR_1_CRTIME_BAD				0x010098
 
+/* Symlink missing NUL terminator */
+#define PR_1_SYMLINK_NUL			0x010099
+
 /* Failed to goto block group */
 #define PR_1_SCAN_GOTO				0x0100A0
 
