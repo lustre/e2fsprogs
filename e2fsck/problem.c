@@ -999,6 +999,11 @@ static struct e2fsck_problem problem_table[] = {
 	  N_("@a in @i %i is corrupt (@n value)."),
 	  PROMPT_CLEAR, 0},
 
+	/* Bad extended attribute value in inode */
+	{ PR_1_SYMLINK_NUL,
+	  N_("@i %i symlink missing NUL terminator.  "),
+	  PROMPT_FIX, 0},
+
 	/* expand inode */
 	{ PR_1_EXPAND_EISIZE_WARNING,
 	  N_("\ne2fsck is being run with \"expand_extra_isize\" option or\n"
