@@ -571,6 +571,9 @@ struct problem_context {
 /* Bad extended attribute value in inode */
 #define PR_1_INODE_EA_BAD_VALUE		0x010070
 
+/* Symlink missing NUL terminator */
+#define PR_1_SYMLINK_NUL		0x010071
+
 /* Warning for user that all inodes need to be expanded atleast by
  * s_min_extra_isize
  */
