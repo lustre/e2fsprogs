@@ -170,71 +170,94 @@ int e2fsck_pass1_check_device_inode(ext2_filsys fs EXT2FS_ATTR((unused)),
  * Check to make sure a symlink inode is real.  Returns 1 if the symlink
  * checks out, 0 if not.
  */
-int e2fsck_pass1_check_symlink(ext2_filsys fs, ext2_ino_t ino,
-			       struct ext2_inode *inode, char *buf)
+static int check_symlink(e2fsck_t ctx, struct problem_context *pctx,
+			 ext2_ino_t ino, struct ext2_inode *inode, char *buf)
 {
-	unsigned int len;
-	int i;
-	blk64_t	blocks;
-	ext2_extent_handle_t	handle;
-	struct ext2_extent_info	info;
-	struct ext2fs_extent	extent;
+	blk64_t	block, num_blocks;
+	unsigned len, limit;
 
 	if ((inode->i_size_high || inode->i_size == 0) ||
 	    (inode->i_flags & EXT2_INDEX_FL))
 		return 0;
 
-	if (inode->i_flags & EXT4_EXTENTS_FL) {
-		if (inode->i_size > fs->blocksize)
+	num_blocks = ext2fs_inode_data_blocks2(ctx->fs, inode);
+	if (inode->i_flags & EXT4_EXTENTS_FL) {	/* in extent-mapped block */
+		struct ext2_extent_info	info;
+		ext2_extent_handle_t	handle;
+		struct ext2fs_extent	extent;
+
+		if (inode->i_size > ctx->fs->blocksize)
 			return 0;
-		if (ext2fs_extent_open2(fs, ino, inode, &handle))
+		if (ext2fs_extent_open2(ctx->fs, ino, inode, &handle))
 			return 0;
-		i = 0;
 		if (ext2fs_extent_get_info(handle, &info) ||
 		    (info.num_entries != 1) ||
-		    (info.max_depth != 0))
-			goto exit_extent;
-		if (ext2fs_extent_get(handle, EXT2_EXTENT_ROOT, &extent) ||
-		    (extent.e_lblk != 0) ||
-		    (extent.e_len != 1) ||
-		    (extent.e_pblk < fs->super->s_first_data_block) ||
-		    (extent.e_pblk >= ext2fs_blocks_count(fs->super)))
-			goto exit_extent;
-		i = 1;
-	exit_extent:
-		ext2fs_extent_free(handle);
-		return i;
-	}
+		    (info.max_depth != 0) ||
 
-	blocks = ext2fs_inode_data_blocks2(fs, inode);
-	if (blocks) {
-		if ((inode->i_size >= fs->blocksize) ||
-		    (blocks != fs->blocksize >> 9) ||
-		    (inode->i_block[0] < fs->super->s_first_data_block) ||
-		    (inode->i_block[0] >= ext2fs_blocks_count(fs->super)))
+		    ext2fs_extent_get(handle, EXT2_EXTENT_ROOT, &extent) ||
+		    (extent.e_lblk != 0) ||
+		    (extent.e_len != 1)) {
+			ext2fs_extent_free(handle);
 			return 0;
+		}
+
+		block = extent.e_pblk;
+		limit = ctx->fs->blocksize;
+
+		ext2fs_extent_free(handle);
+	} else if (num_blocks > 0) {		/* in block-mapped block */
+		int i;
+
+		block = inode->i_block[0];
+		limit = ctx->fs->blocksize;
 
 		for (i = 1; i < EXT2_N_BLOCKS; i++)
 			if (inode->i_block[i])
 				return 0;
+	} else {				/* inside inode i_block[] */
+		block = 0;
+		limit = sizeof(inode->i_block);
+	}
 
-		if (io_channel_read_blk64(fs->io, inode->i_block[0], 1, buf))
+	if (inode->i_size >= limit)
+		return 0;
+
+	if (num_blocks) {
+		if ((num_blocks != ctx->fs->blocksize >> 9) || /* == 1 block */
+		    (block < ctx->fs->super->s_first_data_block) ||
+		    (block >= ext2fs_blocks_count(ctx->fs->super)))
 			return 0;
 
-		len = strnlen(buf, fs->blocksize);
-		if (len == fs->blocksize)
+		if (io_channel_read_blk64(ctx->fs->io, block, 1, buf))
 			return 0;
 	} else {
-		if (inode->i_size >= sizeof(inode->i_block))
-			return 0;
+		buf = (char *)inode->i_block;
+	}
 
-		len = strnlen((char *)inode->i_block, sizeof(inode->i_block));
-		if (len == sizeof(inode->i_block))
-			return 0;
+	len = strnlen(buf, limit);
+	/* Add missing NUL terminator at end of symlink (LU-1540),
+	 * but only offer to fix this in pass1, not from pass2. */
+	if (len > inode->i_size && pctx != NULL &&
+	    fix_problem(ctx, PR_1_SYMLINK_NUL, pctx)) {
+		buf[inode->i_size] = '\0';
+		if (num_blocks != 0) {
+			if (io_channel_write_blk64(ctx->fs->io, block, 1, buf))
+				return 0;
+		} else {
+			e2fsck_write_inode(ctx, ino, inode, "check_ext_attr");
+		}
+		len = inode->i_size;
 	}
 	if (len != inode->i_size)
 		return 0;
+
 	return 1;
+}
+
+int e2fsck_pass1_check_symlink(e2fsck_t ctx, ext2_ino_t ino,
+			       struct ext2_inode *inode, char *buf)
+{
+	return check_symlink(ctx, NULL, ino, inode, buf);
 }
 
 /*
@@ -1486,8 +1509,7 @@ void e2fsck_pass1(e2fsck_t ctx)
 			check_size(ctx, &pctx);
 			ctx->fs_blockdev_count++;
 		} else if (LINUX_S_ISLNK (inode->i_mode) &&
-			   e2fsck_pass1_check_symlink(fs, ino, inode,
-						      block_buf)) {
+			   check_symlink(ctx, &pctx, ino, inode, block_buf)) {
 			check_immutable(ctx, &pctx);
 			ctx->fs_symlinks_count++;
 			if (ext2fs_inode_data_blocks(fs, inode) == 0) {
