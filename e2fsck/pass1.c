@@ -179,11 +179,12 @@ int e2fsck_pass1_check_device_inode(ext2_filsys fs EXT2FS_ATTR((unused)),
  * Check to make sure a symlink inode is real.  Returns 1 if the symlink
  * checks out, 0 if not.
  */
-int e2fsck_pass1_check_symlink(ext2_filsys fs, ext2_ino_t ino,
-			       struct ext2_inode *inode, char *buf)
+static int check_symlink(e2fsck_t ctx, struct problem_context *pctx,
+			 ext2_ino_t ino, struct ext2_inode *inode, char *buf)
 {
 	unsigned int buflen;
 	unsigned int len;
+	blk64_t blk = ~0ULL;
 
 	if ((inode->i_size_high || inode->i_size == 0) ||
 	    (inode->i_flags & EXT2_INDEX_FL))
@@ -194,7 +195,7 @@ int e2fsck_pass1_check_symlink(ext2_filsys fs, ext2_ino_t ino,
 
 		if (inode->i_flags & EXT4_EXTENTS_FL)
 			return 0;
-		if (ext2fs_inline_data_size(fs, ino, &inline_size))
+		if (ext2fs_inline_data_size(ctx->fs, ino, &inline_size))
 			return 0;
 		if (inode->i_size != inline_size)
 			return 0;
@@ -211,11 +212,10 @@ int e2fsck_pass1_check_symlink(ext2_filsys fs, ext2_ino_t ino,
 		ext2_extent_handle_t	handle;
 		struct ext2_extent_info	info;
 		struct ext2fs_extent	extent;
-		blk64_t blk;
 		int i;
 
 		if (inode->i_flags & EXT4_EXTENTS_FL) {
-			if (ext2fs_extent_open2(fs, ino, inode, &handle))
+			if (ext2fs_extent_open2(ctx->fs, ino, inode, &handle))
 				return 0;
 			if (ext2fs_extent_get_info(handle, &info) ||
 			    (info.num_entries != 1) ||
@@ -240,27 +240,51 @@ int e2fsck_pass1_check_symlink(ext2_filsys fs, ext2_ino_t ino,
 					return 0;
 		}
 
-		if (blk < fs->super->s_first_data_block ||
-		    blk >= ext2fs_blocks_count(fs->super))
+		if (blk < ctx->fs->super->s_first_data_block ||
+		    blk >= ext2fs_blocks_count(ctx->fs->super))
 			return 0;
 
-		if (io_channel_read_blk64(fs->io, blk, 1, buf))
+		if (io_channel_read_blk64(ctx->fs->io, blk, 1, buf))
 			return 0;
 
-		buflen = fs->blocksize;
+		buflen = ctx->fs->blocksize;
 	}
 
 	if (inode->i_flags & EXT4_ENCRYPT_FL)
 		len = ext2fs_le16_to_cpu(*(__u16 *)buf) + 2;
-	else
+	else {
 		len = strnlen(buf, buflen);
+
+		/* Add missing NUL terminator at end of symlink (LU-1540),
+		 * but only offer to fix this in pass1, not from pass2. */
+		if (len > inode->i_size && pctx != NULL &&
+		    fix_problem(ctx, PR_1_SYMLINK_NUL, pctx)) {
+			buf[inode->i_size] = '\0';
+			if (ext2fs_is_fast_symlink(inode)) {
+				e2fsck_write_inode(ctx, ino,
+						   inode, "check_ext_attr");
+			} else {
+				if (io_channel_write_blk64(ctx->fs->io,
+							   blk, 1, buf))
+					return 0;
+			}
+			len = inode->i_size;
+		}
+	}
 
 	if (len >= buflen)
 		return 0;
 
 	if (len != inode->i_size)
 		return 0;
+
 	return 1;
+}
+
+int e2fsck_pass1_check_symlink(e2fsck_t ctx, ext2_ino_t ino,
+			       struct ext2_inode *inode, char *buf)
+{
+	return check_symlink(ctx, NULL, ino, inode, buf);
 }
 
 /*
@@ -2594,8 +2618,7 @@ void e2fsck_pass1_run(e2fsck_t ctx)
 			check_size(ctx, &pctx);
 			ctx->fs_blockdev_count++;
 		} else if (LINUX_S_ISLNK (inode->i_mode) &&
-			   e2fsck_pass1_check_symlink(fs, ino, inode,
-						      block_buf)) {
+			   check_symlink(ctx, &pctx, ino, inode, block_buf)) {
 			check_immutable(ctx, &pctx);
 			ctx->fs_symlinks_count++;
 			if (inode->i_flags & EXT4_INLINE_DATA_FL) {
