@@ -721,6 +721,9 @@ struct problem_context {
 /* invalid inode creation time */
 #define PR_1_CRTIME_BAD				0x01008C
 
+/* Symlink missing NUL terminator */
+#define PR_1_SYMLINK_NUL			0x01008D
+
 
 /*
  * Pass 1b errors
