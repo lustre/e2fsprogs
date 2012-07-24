@@ -157,7 +157,7 @@ patch -p1 < patches/sles/11/rpm/e2fsprogs-1.41.1-splash_support.patch
 # libcom_err patches
 patch -p1 < patches/sles/11/rpm/libcom_err-compile_et_permissions.patch
 cp patches/sles/11/rpm/README.SUSE .
-cp patches/sles/11/rpm/%{name}-1.41.4.de.po po/de.po
+#cp patches/sles/11/rpm/%{name}-1.41.4.de.po po/de.po
 
 %build
 autoreconf --force --install
