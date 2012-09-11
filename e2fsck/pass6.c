@@ -795,50 +795,53 @@ static int lfsck_get_object_dir(e2fsck_t ctx, char *block_buf,ext2_ino_t *inode)
 	return 0;
 }
 
-/* What is the last object id for the OST */
-static int lfsck_get_last_id(e2fsck_t ctx, __u64 *last_id)
+/* create a new LAST_ID file */
+static int create_last_id_file(ext2_filsys fs, ext2_ino_t dir_ino,
+			       ext2_ino_t *new_ino)
 {
-	ext2_filsys fs = ctx->fs;
-	ext2_ino_t  inode, tinode;
-	ext2_file_t  e2_file;
-	char *block_buf;
-	unsigned int got;
+	struct ext2_inode inode;
+	ext2_ino_t inum;
 	int rc;
 
-	block_buf = e2fsck_allocate_memory(ctx, fs->blocksize * 3,
-					   "lookup buffer");
-
-	rc = lfsck_get_object_dir(ctx, block_buf, &inode);
-	if (rc)
-		goto out;
-
-	rc = ext2fs_lookup(fs, inode, LAST_ID,
-			   strlen(LAST_ID), block_buf, &tinode);
-	if (rc)
-		goto out;
-
-	rc = ext2fs_file_open(fs, tinode, 0, &e2_file);
-	if (rc)
-		goto out;
-
-	rc = ext2fs_file_read(e2_file, last_id, sizeof(__u64), &got);
+	rc = ext2fs_new_inode(fs, dir_ino, S_IFREG | S_IRWXU, 0, &inum);
 	if (rc) {
-		ext2fs_file_close(e2_file);
-		goto out;
+		fprintf(stderr, "Creating LAST_ID file failed!\n");
+		return rc;
 	}
 
-	if (got != sizeof(__u64)) {
-		rc = EIO;
-		ext2fs_file_close(e2_file);
-		goto out;
+	/* Allocate and write new inode before adding the direntry.
+	 * If that fails or the program is interrupted, at worst some inode
+	 * space will be leaked. But without visible direntry issues */
+	ext2fs_inode_alloc_stats2(fs, inum, +1, 0);
+
+	memset(&inode, 0, sizeof(inode));
+	inode.i_mode = LINUX_S_IFREG | S_IRUSR | S_IWUSR;
+	inode.i_atime = inode.i_ctime = inode.i_mtime =
+		fs->now ? fs->now : time(NULL);
+	inode.i_links_count = 1;
+	inode.i_size = 0;
+	rc = ext2fs_write_new_inode(fs, inum, &inode);
+	if (rc) {
+		fprintf(stderr, "Failed to write new inode\n");
+		return rc;
 	}
 
-	rc = ext2fs_file_close(e2_file);
+	rc = ext2fs_link(fs, dir_ino, "LAST_ID", inum, EXT2_FT_REG_FILE);
+	if (rc == EXT2_ET_DIR_NO_SPACE) {
+		rc = ext2fs_expand_dir(fs, dir_ino);
+		if (rc) {
+			fprintf(stderr, "Failed to expand directory");
+			return rc;
+		}
+		rc = ext2fs_link(fs, dir_ino, "LAST_ID", inum, EXT2_FT_REG_FILE);
+		if (rc) {
+			fprintf(stderr, "Failed to link directory");
+			return rc;
+		}
+	}
 
-	*last_id = ext2fs_le64_to_cpu(*last_id);
-out:
-	ext2fs_free_mem(&block_buf);
-	return rc;
+	*new_ino = inum;
+	return 0;
 }
 
 int lfsck_set_last_id(e2fsck_t ctx,  __u64 last_id)
@@ -859,12 +862,29 @@ int lfsck_set_last_id(e2fsck_t ctx,  __u64 last_id)
 
 	rc = ext2fs_lookup(fs, inode, LAST_ID,
 			   strlen(LAST_ID), block_buf, &tinode);
-	if (rc)
+	if (rc == EXT2_ET_FILE_NOT_FOUND) {
+		/* Create a new file */
+		VERBOSE(ctx, "Recreating missing LAST_ID\n");
+		rc = create_last_id_file(fs, inode, &tinode);
+		if (rc)
+			goto out;
+	} else if (rc) {
+		fprintf(stderr, "LAST_ID lookup failed: %d\n",
+			rc);
 		goto out;
+	}
 
 	rc = ext2fs_file_open(fs, tinode, EXT2_FILE_WRITE, &e2_file);
 	if (rc)
 		goto out;
+
+	if (ext2fs_file_get_size(e2_file) < sizeof(__u64)) {
+		rc = ext2fs_file_set_size(e2_file, sizeof(__u64));
+		if (rc) {
+			fprintf(stderr, "Failed to resize LAST_ID\n");
+			goto out;
+		}
+	}
 
 	last_id = ext2fs_cpu_to_le64(last_id);
 
@@ -1292,13 +1312,6 @@ void e2fsck_pass6_ost(e2fsck_t ctx)
 	ost_hdr.ost_flags = ctx->options & E2F_OPT_READONLY;
 	ost_hdr.ost_num_files = lctx.numfiles;
 	VERBOSE(ctx, "OST: num files = %u\n", lctx.numfiles);
-
-	if (lfsck_get_last_id(ctx, &ost_hdr.ost_last_id)) {
-		fprintf(stderr, "Failure to get last id for objects\n");
-		ctx->flags |= E2F_FLAG_ABORT;
-		goto out;
-	}
-	VERBOSE(ctx, "OST: last_id = "LPU64"\n", ost_hdr.ost_last_id);
 
 	/* Update the last_id value on the OST if necessary/possible to the
 	 * MDS value if larger.  Otherwise we risk creating duplicate objects.
