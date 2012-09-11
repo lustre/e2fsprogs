@@ -193,8 +193,7 @@ errout:
 
 void setup_cmd(int argc, char **argv)
 {
-	errcode_t	retval;
-	int		i, c, err;
+	int		c, err;
 	unsigned int	blocks = 128;
 	unsigned int	inodes = 0;
 	unsigned int	type = EXT2FS_BMAP64_BITARRAY;
@@ -372,7 +371,7 @@ void do_testb(int argc, char *argv[])
 {
 	unsigned int block, num;
 	int err;
-	int test_result, op_result;
+	int test_result;
 
 	if (check_fs_open(argv[0]))
 		return;
@@ -508,7 +507,7 @@ void do_testi(int argc, char *argv[])
 {
 	unsigned int inode;
 	int err;
-	int test_result, op_result;
+	int test_result;
 
 	if (check_fs_open(argv[0]))
 		return;
@@ -588,13 +587,13 @@ int main(int argc, char **argv)
 			blocks = parse_ulong(optarg, argv[0],
 					     "number of blocks", &err);
 			if (err)
-				return;
+				return err;
 			break;
 		case 'i':
 			inodes = parse_ulong(optarg, argv[0],
 					     "number of blocks", &err);
 			if (err)
-				return;
+				return err;
 			break;
 		case 'l':	/* Legacy bitmaps */
 			flags = 0;
@@ -603,7 +602,7 @@ int main(int argc, char **argv)
 			type = parse_ulong(optarg, argv[0],
 					   "bitmap backend type", &err);
 			if (err)
-				return;
+				return err;
 			break;
 		case 'R':
 			request = optarg;
