@@ -187,7 +187,7 @@ static int check_symlink(e2fsck_t ctx, struct problem_context *pctx,
 
 		if (inode->i_size > ctx->fs->blocksize)
 			return 0;
-		if (ext2fs_extent_open2(ctx->fs, pctx->ino, inode, &handle))
+		if (ext2fs_extent_open2(ctx->fs, ino, inode, &handle))
 			return 0;
 		if (ext2fs_extent_get_info(handle, &info) ||
 		    (info.num_entries != 1) ||
