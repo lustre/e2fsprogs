@@ -93,6 +93,7 @@ enum fid_seq {
 	FID_SEQ_IGIF		= 12ULL,
 	FID_SEQ_IGIF_MAX	= 0x0ffffffffULL,
 	FID_SEQ_IDIF		= 0x100000000ULL,
+	FID_SEQ_NORMAL		= 0x200000400ULL,
 };
 
 static inline int fid_seq_is_igif(const __u64 seq)

@@ -761,12 +761,31 @@ static int lfsck_iterate_obj_dirs(ext2_ino_t dir, int entry,
 	return 0;
 }
 
+static int lfsck_check_entry(ext2_ino_t dir, int entry,
+			     struct ext2_dir_entry *de, int offset,
+			     int blocksize, char *buf, void *priv_data)
+{
+	struct ext2_dir_entry_2 *dirent = (struct ext2_dir_entry_2 *)de;
+	int *dne = (int *)priv_data;
+	__u64 seq;
+	char *endptr;
+
+	seq = strtoll(dirent->name, &endptr, 16);
+	if (*endptr == '\0') {
+		if (seq >= FID_SEQ_NORMAL) {
+			*dne = 1;
+			return DIRENT_ABORT;
+		}
+	}
+	return 0;
+}
+
 /* Get the starting point of where the objects reside */
 static int lfsck_get_object_dir(e2fsck_t ctx, char *block_buf,ext2_ino_t *inode)
 {
 	ext2_filsys fs = ctx->fs;
 	ext2_ino_t  tinode;
-	int rc;
+	int rc, dne = 0;
 
 	rc = ext2fs_lookup(fs, EXT2_ROOT_INO, OBJECT_DIR, strlen(OBJECT_DIR),
 			   block_buf, &tinode);
@@ -778,6 +797,13 @@ static int lfsck_get_object_dir(e2fsck_t ctx, char *block_buf,ext2_ino_t *inode)
 	if (rc)
 		return ENOENT;
 
+	/* We don't support DNE so far */
+	rc = ext2fs_dir_iterate2(fs, tinode, 0, NULL, lfsck_check_entry, &dne);
+	if (dne != 0) {
+		fprintf(stderr, "DNE mode isn't supported!\n");
+		return ENOENT;
+	}
+
 	rc = ext2fs_lookup(fs, tinode, OBJECT_DIR_V1, strlen(OBJECT_DIR_V1),
 			   block_buf, inode);
 	if (rc) {
@@ -785,12 +811,12 @@ static int lfsck_get_object_dir(e2fsck_t ctx, char *block_buf,ext2_ino_t *inode)
 				   strlen(OBJECT_DIR_V2), block_buf, inode);
 		if (rc) {
 			fprintf(stderr, "error looking up OST object subdir\n");
-			return -ENOENT;
+			return ENOENT;
 		}
 	}
 	rc = ext2fs_check_directory(fs, *inode);
 	if (rc)
-		return -ENOENT;
+		return ENOENT;
 
 	return 0;
 }
