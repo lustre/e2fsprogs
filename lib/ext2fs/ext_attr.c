@@ -756,12 +756,12 @@ static errcode_t ext2fs_attr_block_get(ext2_filsys fs, struct ext2_inode *inode,
 	if (easize)
 		*easize = entry->e_value_size;
 	if (buffer) {
-		error = EXT2_ET_EA_TOO_BIG;
-		if (entry->e_value_size > buffer_size)
+		if (entry->e_value_size > buffer_size) {
+			error = EXT2_ET_EA_TOO_BIG;
 			goto cleanup;
+		}
 		memcpy(buffer, block_buf + entry->e_value_offs,
 		       entry->e_value_size);
-		error = 0;
 	}
 
 cleanup:
@@ -809,10 +809,11 @@ static errcode_t ext2fs_attr_ibody_get(ext2_filsys fs,
 	if (easize)
 		*easize = entry->e_value_size;
 	if (buffer) {
-		error = EXT2_ET_EA_TOO_BIG;
-		if (entry->e_value_size > buffer_size)
+		if (entry->e_value_size > buffer_size) {
+			error = EXT2_ET_EA_TOO_BIG;
 			goto cleanup;
-		memcpy(buffer, &IHDR(inode)->h_first_entry[0] +
+		}
+		memcpy(buffer, (void *)&IHDR(inode)->h_first_entry[0] +
 			       entry->e_value_offs, entry->e_value_size);
 	}
 

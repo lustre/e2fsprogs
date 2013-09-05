@@ -698,7 +698,7 @@ static int lfsck_mds_dirs(ext2_ino_t dir, int entry,
 
 	rc = lfsck_get_fid(lctx->ctx->fs, dirent->inode, &mds_dirent.mds_fid);
 	if (rc != 0)
-		return 0;
+		goto follow_on;
 
 	DEBUG(lctx->ctx, "MDT: dirfid "DFID" child "DFID" file %.*s\n",
 	      PFID(&mds_dirent.mds_dirfid), PFID(&mds_dirent.mds_fid),
@@ -725,6 +725,7 @@ static int lfsck_mds_dirs(ext2_ino_t dir, int entry,
 			return DIRENT_ABORT;
 		}
 	}
+follow_on:
 	if (file_type == EXT2_FT_DIR) {
 		lctx2 = *lctx;
 		lctx2.dot = dirent->inode;

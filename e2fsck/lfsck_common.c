@@ -404,7 +404,7 @@ int lfsck_get_fid(ext2_filsys fs, ino_t ino, struct lu_fid *fid)
 		return rc;
 	}
 	rc = ext2fs_attr_get(fs, inode, EXT2_ATTR_INDEX_TRUSTED,
-			     LUSTRE_XATTR_MDT_LMA, buf, sizeof(*buf), &size);
+			     LUSTRE_XATTR_MDT_LMA, buf, sizeof(buf), &size);
 	if (rc) {
 		if (rc != EXT2_ET_EA_NAME_NOT_FOUND &&
 		    rc != EXT2_ET_EA_BAD_MAGIC) {
