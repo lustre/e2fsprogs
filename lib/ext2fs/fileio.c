@@ -270,7 +270,7 @@ errcode_t ext2fs_file_write(ext2_file_t file, const void *buf,
 			    unsigned int nbytes, unsigned int *written)
 {
 	ext2_filsys	fs;
-	errcode_t	retval = 0;
+	errcode_t	retval = 0, rc;
 	unsigned int	start, c, count = 0;
 	const char	*ptr = (const char *) buf;
 
@@ -307,6 +307,13 @@ errcode_t ext2fs_file_write(ext2_file_t file, const void *buf,
 	}
 
 fail:
+	/* Update inode size */
+	if (count != 0 && EXT2_I_SIZE(&file->inode) < file->pos) {
+		rc = ext2fs_file_set_size2(file, file->pos);
+		if (retval == 0)
+			retval = rc;
+	}
+
 	if (written)
 		*written = count;
 	return retval;
