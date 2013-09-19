@@ -364,28 +364,6 @@ static void create_root_dir(ext2_filsys fs)
 		com_err("ext2fs_mkdir", retval, _("while creating root dir"));
 		exit(1);
 	}
-	if (geteuid()) {
-		retval = ext2fs_read_inode(fs, EXT2_ROOT_INO, &inode);
-		if (retval) {
-			com_err("ext2fs_read_inode", retval,
-				_("while reading root inode"));
-			exit(1);
-		}
-		uid = getuid();
-		inode.i_uid = uid;
-		ext2fs_set_i_uid_high(inode, uid >> 16);
-		if (uid) {
-			gid = getgid();
-			inode.i_gid = gid;
-			ext2fs_set_i_gid_high(inode, gid >> 16);
-		}
-		retval = ext2fs_write_new_inode(fs, EXT2_ROOT_INO, &inode);
-		if (retval) {
-			com_err("ext2fs_write_inode", retval,
-				_("while setting root inode ownership"));
-			exit(1);
-		}
-	}
 }
 
 static void create_lost_and_found(ext2_filsys fs)
