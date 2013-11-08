@@ -551,7 +551,7 @@ static void print_lmastr(FILE *out, ext2_ino_t inode_num, void *data, int len)
 			debug_prog_name, inode_num, len);
 		return;
 	}
-	fid_be_to_cpu(&lma->lma_self_fid, &lma->lma_self_fid);
+	fid_le_to_cpu(&lma->lma_self_fid, &lma->lma_self_fid);
 	fprintf(out, "  lma: fid="DFID" compat=%x incompat=%x\n",
 		PFID(&lma->lma_self_fid), ext2fs_le32_to_cpu(lma->lma_compat),
 		ext2fs_le32_to_cpu(lma->lma_incompat));
