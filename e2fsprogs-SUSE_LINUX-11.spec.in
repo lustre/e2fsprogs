@@ -34,6 +34,7 @@ Version:        @E2FSPROGS_PKGVER@
 Release:        0%{_vendor}
 Summary:        Utilities for the Second Extended File System
 Url:            http://downloads.whamcloud.com/public/
+Provides:       ldiskfsprogs = %{version}
 Source:         %{name}-%{version}.tar.gz
 BuildRoot:      %{_tmppath}/%{name}-%{version}-build
 
