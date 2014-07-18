@@ -53,7 +53,10 @@ e2fsprogs-RHEL-6.spec: $(DEP_SUBSTITUTE) e2fsprogs-RHEL-6.spec.in
 e2fsprogs-SUSE_LINUX-11.spec: $(DEP_SUBSTITUTE) e2fsprogs-SUSE_LINUX-11.spec.in
 	cd $(top_builddir); CONFIG_FILES=./e2fsprogs-SUSE_LINUX-11.spec ./config.status
 
-rpm: e2fsprogs-RHEL-6.spec e2fsprogs-SUSE_LINUX-11.spec
+e2fsprogs-RHEL-7.spec: $(DEP_SUBSTITUTE) e2fsprogs-RHEL-7.spec.in
+	cd $(top_builddir); CONFIG_FILES=./e2fsprogs-RHEL-7.spec ./config.status
+
+rpm: e2fsprogs-RHEL-6.spec e2fsprogs-SUSE_LINUX-11.spec e2fsprogs-RHEL-7.spec
 	sh contrib/build-rpm
 
 docs:
