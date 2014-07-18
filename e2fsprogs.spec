@@ -71,6 +71,7 @@ SMP systems.
 %build
 %configure --enable-elf-shlibs --enable-nls --disable-defrag \
 	--enable-quota --disable-fuse2fs \
+	--without-libarchive \
 	%{?extra_config_flags:%extra_config_flags}
 make
 make check
