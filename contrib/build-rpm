@@ -68,8 +68,12 @@ if [ -z "$RELEASE" ]; then
 fi
 case "$DISTRO-$RELEASE" in
     RedHatEnterpriseServer-6*) DISTRO=RHEL; RELEASE=6;;
+    RedHatEnterpriseServer-7*) DISTRO=RHEL; RELEASE=7;;
     CentOS-6*) DISTRO=RHEL; RELEASE=6;;
-    Fedora-1[234]) DISTRO=RHEL; RELEASE=6;;	# use the same .spec for now
+    CentOS-7*) DISTRO=RHEL; RELEASE=7;;
+    Fedora-1[1-4]) DISTRO=RHEL; RELEASE=6;;	# use the same .spec for now
+    Fedora-1[5-9]) DISTRO=RHEL; RELEASE=7;;
+    Fedora-2[0-9]) DISTRO=RHEL; RELEASE=7;;
 esac
 
 SPECFILE="$currdir/e2fsprogs-${DISTRO// /_}-$RELEASE.spec"
