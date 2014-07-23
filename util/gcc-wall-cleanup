@@ -2,9 +2,9 @@
 #
 # This script filters out gcc-wall crud that we're not interested in seeing.
 #
+#/^gcc /d
 /^cc /d
 /^kcc /d
-/^gcc /d
 /does not support `long long'/d
 /forbids long long integer constants/d
 /does not support the `ll' length modifier/d
@@ -12,10 +12,10 @@
 /ANSI C forbids long long integer constants/d
 /traditional C rejects string concatenation/d
 /integer constant is unsigned in ANSI C, signed with -traditional/d
-/At top level:/d
-/In file included from/d
-/In function `.*':/d
 /zero-length format string/d
 /warning: (near initialization for/d
-/^[ 	]*from/d
+#/At top level:/d
+#/In file included from/d
+#/In function `.*':/d
+#/^[ 	]*from/d
 

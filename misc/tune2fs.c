@@ -181,7 +181,6 @@ static __u32 clear_ok_features[3] = {
 static int get_journal_sb(ext2_filsys jfs, char buf[SUPERBLOCK_SIZE])
 {
 	int retval;
-	int start;
 	journal_superblock_t *jsb;
 
 	if (!(jfs->super->s_feature_incompat &
