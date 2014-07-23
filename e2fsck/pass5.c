@@ -242,7 +242,6 @@ static void check_block_bitmaps(e2fsck_t ctx)
 	problem_t	problem, save_problem;
 	int		fixit, had_problem;
 	errcode_t	retval;
-	int		csum_flag;
 	int	redo_flag = 0;
 	char *actual_buf, *bitmap_buf;
 
@@ -285,8 +284,6 @@ static void check_block_bitmaps(e2fsck_t ctx)
 		goto errout;
 	}
 
-	csum_flag = EXT2_HAS_RO_COMPAT_FEATURE(fs->super,
-					       EXT4_FEATURE_RO_COMPAT_GDT_CSUM);
 redo_counts:
 	had_problem = 0;
 	save_problem = 0;
