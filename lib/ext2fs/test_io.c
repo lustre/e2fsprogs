@@ -10,6 +10,12 @@
  */
 
 #include "config.h"
+#if HAVE_SECURE_GETENV
+#define _GNU_SOURCE
+#endif
+#if HAVE_SECURE_GETENV
+#define _GNU_SOURCE
+#endif
 #include <stdio.h>
 #include <string.h>
 #if HAVE_UNISTD_H
