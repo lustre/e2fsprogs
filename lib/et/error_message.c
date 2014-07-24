@@ -17,6 +17,9 @@
  */
 
 #include "config.h"
+#if HAVE_SECURE_GETENV
+#define _GNU_SOURCE
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
