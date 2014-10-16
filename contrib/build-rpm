@@ -74,6 +74,7 @@ case "$DISTRO-$RELEASE" in
     Fedora-1[1-4]) DISTRO=RHEL; RELEASE=6;;	# use the same .spec for now
     Fedora-1[5-9]) DISTRO=RHEL; RELEASE=7;;
     Fedora-2[0-9]) DISTRO=RHEL; RELEASE=7;;
+    SUSE\ LINUX-1[1-2]* | SUSE-12*) DISTRO=SUSE_LINUX; RELEASE=11+12;;
 esac
 
 SPECFILE="$currdir/e2fsprogs-${DISTRO// /_}-$RELEASE.spec"
