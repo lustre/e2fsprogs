@@ -210,6 +210,12 @@ shared storage environments.
 @QUOTA_MAN_COMMENT@Causes the quota files (i.e., user.quota and
 @QUOTA_MAN_COMMENT@group.quota which existed
 @QUOTA_MAN_COMMENT@in the older quota design) to be hidden inodes.
+@QUOTA_MAN_COMMENT@.TP
+@QUOTA_MAN_COMMENT@.B project
+@QUOTA_MAN_COMMENT@.br
+@QUOTA_MAN_COMMENT@This ext4 feature provides project quota support.
+@QUOTA_MAN_COMMENT@With this feature, the project ID of inode will be
+@QUOTA_MAN_COMMENT@managed when the filesystem is mounted.
 .TP
 .B resize_inode
 .br
