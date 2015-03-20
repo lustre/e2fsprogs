@@ -651,11 +651,25 @@ mmp_error:
 		 */
 		if (!Q_flag) {
 			Q_flag = 1;
-			/* Enable all quota by default */
-			for (qtype = 0; qtype < MAXQUOTAS; qtype++)
-				quota_enable[qtype] = QOPT_ENABLE;
+			/* Enable usr/grp by default */
+			for (qtype = 0; qtype < MAXQUOTAS; qtype++) {
+				if (qtype != PRJQUOTA)
+					quota_enable[qtype] = QOPT_ENABLE;
+				else
+					quota_enable[qtype] = QOPT_DISABLE;
+			}
 		}
 		sb->s_feature_ro_compat &= ~EXT4_FEATURE_RO_COMPAT_QUOTA;
+	}
+
+	if (FEATURE_ON(E2P_FEATURE_RO_INCOMPAT,
+		       EXT4_FEATURE_RO_COMPAT_PROJECT)) {
+		if (!Q_flag && !(sb->s_feature_ro_compat &
+				 EXT4_FEATURE_RO_COMPAT_QUOTA))
+			fputs(_("\nWarning: enabled project without quota together\n"),
+				stderr);
+		Q_flag = 1;
+		quota_enable[PRJQUOTA] = QOPT_ENABLE;
 	}
 
 	if (FEATURE_OFF(E2P_FEATURE_RO_INCOMPAT,
@@ -848,12 +862,17 @@ static int option_handle_function(char *token, void *data)
 		quota_enable[GRPQUOTA] = QOPT_ENABLE;
 	} else if (strncmp(token, "^grp", 4) == 0) {
 		quota_enable[GRPQUOTA] = QOPT_DISABLE;
+	} else if (strncmp(token, "prj", 3) == 0) {
+		quota_enable[PRJQUOTA] = QOPT_ENABLE;
+	} else if (strncmp(token, "^prj", 4) == 0) {
+		quota_enable[PRJQUOTA] = QOPT_DISABLE;
 	} else {
 		fputs(_("\nBad quota options specified.\n\n"
 			"Following valid quota options are available "
 			"(pass by separating with comma):\n"
 			"\t[^]usr[quota]\n"
 			"\t[^]grp[quota]\n"
+			"\t[^]prj[quota]\n"
 			"\n\n"), stderr);
 		return 1;
 	}

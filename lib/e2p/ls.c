@@ -200,6 +200,7 @@ static __u64 e2p_free_blocks_count(struct ext2_super_block *super)
 static const char *quota_prefix[MAXQUOTAS] = {
 	[USRQUOTA] = "User quota inode:",
 	[GRPQUOTA] = "Group quota inode:",
+	[PRJQUOTA] = "Project quota inode:",
 };
 
 /**
