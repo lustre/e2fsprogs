@@ -27,6 +27,8 @@ if [ "$EXP1"x = x ]; then
 		gunzip < $test_dir/expect.1.gz > $EXP1
 	else
 		EXP1=$test_dir/expect.1
+		[ "$CHECK_RHEL7" = "true" -a -f $test_dir/expect_rhel7.1 ] &&
+			EXP1=$test_dir/expect_rhel7.1 || true
 	fi
 fi
 
@@ -36,6 +38,8 @@ if [ "$EXP2"x = x ]; then
 		gunzip < $test_dir/expect.2.gz > $EXP2
 	else
 		EXP2=$test_dir/expect.2
+		[ "$CHECK_RHEL7" = "true" -a -f $test_dir/expect_rhel7.2 ] &&
+			EXP2=$test_dir/expect_rhel7.2 || true
 	fi
 fi
 

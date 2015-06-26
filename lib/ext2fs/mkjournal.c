@@ -32,6 +32,10 @@
 #if HAVE_NETINET_IN_H
 #include <netinet/in.h>
 #endif
+#ifdef __linux__
+#include <sys/utsname.h>
+#define KERNEL_VERSION(a,b,c) (((a) << 16) + ((b) << 8) + (c))
+#endif
 
 #include "ext2_fs.h"
 #include "e2p/e2p.h"
@@ -330,6 +334,54 @@ out2:
 	return retval;
 }
 
+#ifdef __linux__
+static int parse_version_number(const char *s)
+{
+	int	major, minor, rev;
+	char	*endptr;
+	const char *cp = s;
+
+	if (!s)
+		return 0;
+	major = strtol(cp, &endptr, 10);
+	if (cp == endptr || *endptr != '.')
+		return 0;
+	cp = endptr + 1;
+	minor = strtol(cp, &endptr, 10);
+	if (cp == endptr || *endptr != '.')
+		return 0;
+	cp = endptr + 1;
+	rev = strtol(cp, &endptr, 10);
+	if (cp == endptr)
+		return 0;
+	return KERNEL_VERSION(major, minor, rev);
+}
+
+int ext2fs_is_before_linux_ver(unsigned int major, unsigned int minor,
+			       unsigned int rev)
+{
+	struct		utsname ut;
+	static int	linux_version_code = -1;
+
+	if (uname(&ut)) {
+		perror("uname");
+		exit(1);
+	}
+	if (linux_version_code < 0)
+		linux_version_code = parse_version_number(ut.release);
+	if (linux_version_code == 0)
+		return 0;
+
+	return linux_version_code < KERNEL_VERSION(major, minor, rev);
+}
+#else
+int ext2fs_is_before_linux_ver(unsigned int major, unsigned int minor,
+			       unsigned int rev)
+{
+	return 0;
+}
+#endif
+
 /*
  * Find a reasonable journal file size (in blocks) given the number of blocks
  * in the filesystem.  For very small filesystems, it is not reasonable to
@@ -341,8 +393,10 @@ int ext2fs_default_journal_size(__u64 num_blocks)
 {
 	if (num_blocks < 2048)
 		return -1;
-	if (num_blocks < 32768)		/* 128 MB */
+	if (num_blocks <= 8192)		/* 32 MB */
 		return (1024);			/* 4 MB */
+	if (num_blocks < 32768)		/* 128 MB */
+		return (2048);			/* 8 MB */
 	if (num_blocks < 256*1024)	/* 1 GB */
 		return (4096);			/* 16 MB */
 	if (num_blocks < 512*1024)	/* 2 GB */
