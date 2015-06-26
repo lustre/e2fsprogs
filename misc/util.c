@@ -50,6 +50,7 @@
 #include "ext2fs/ext2_fs.h"
 #include "ext2fs/ext2fs.h"
 #include "ext2fs/kernel-jbd.h"
+#include "ext2fs/ext2fsP.h"
 #include "support/nls-enable.h"
 #include "support/devname.h"
 #include "blkid/blkid.h"
@@ -278,6 +279,13 @@ void figure_journal_size(struct ext2fs_journal_params *jparams,
 	if (requested_j_size > 0 ||
 	    (ext2fs_has_feature_fast_commit(fs->super) && requested_fc_size > 0)) {
 		unsigned int total_blocks;
+		int min_size;
+
+		if (ext2fs_is_before_linux_ver(3, 10, 0) ||
+		    ext2fs_blocks_count(fs->super) <= 8192)
+			min_size = 1024;
+		else
+			min_size = 2048;
 
 		if (requested_j_size > 0)
 			jparams->num_journal_blocks =
@@ -289,11 +297,11 @@ void figure_journal_size(struct ext2fs_journal_params *jparams,
 		else if (!ext2fs_has_feature_fast_commit(fs->super))
 			jparams->num_fc_blocks = 0;
 		total_blocks = jparams->num_journal_blocks + jparams->num_fc_blocks;
-		if (total_blocks < JBD2_MIN_JOURNAL_BLOCKS ||
+		if (total_blocks < min_size ||
 		    total_blocks > JBD2_MAX_JOURNAL_BLOCKS) {
 			fprintf(stderr,
 				_("\nThe total requested journal size is %d blocks;\nit must be between %d and %u blocks.  Aborting.\n"),
-				total_blocks, JBD2_MIN_JOURNAL_BLOCKS,
+				total_blocks, min_size,
 				JBD2_MAX_JOURNAL_BLOCKS);
 			exit(1);
 		}
