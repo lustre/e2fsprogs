@@ -10,7 +10,7 @@ Filesystem OS type:       Linux
 Inode count:              1024
 Block count:              16384
 Reserved block count:     819
-Free blocks:              14786
+Free blocks:              13762
 Free inodes:              1005
 First block:              1
 Block size:               1024
@@ -35,8 +35,8 @@ Default directory hash:   half_md4
 Journal backup:           inode blocks
 Checksum type:            crc32c
 Journal features:         (none)
-Journal size:             1024k
-Journal length:           1024
+Journal size:             2048k
+Journal length:           2048
 Journal sequence:         0x00000001
 Journal start:            0
 
@@ -56,8 +56,8 @@ Group 1: (Blocks 8193-16383) [INODE_UNINIT]
   Block bitmap at 131 (bg #0 + 130)
   Inode bitmap at 133 (bg #0 + 132)
   Inode table at 262-389 (bg #0 + 261)
-  7038 free blocks, 512 free inodes, 0 directories, 512 unused inodes
-  Free blocks: 9346-16383
+  6014 free blocks, 512 free inodes, 0 directories, 512 unused inodes
+  Free blocks: 10370-16383
   Free inodes: 513-1024
 debugfs: stat /emptyfile
 Inode: III   Type: regular    
@@ -114,4 +114,4 @@ Pass 2: Checking directory structure
 Pass 3: Checking directory connectivity
 Pass 4: Checking reference counts
 Pass 5: Checking group summary information
-test.img: 19/1024 files (0.0% non-contiguous), 1598/16384 blocks
+test.img: 19/1024 files (0.0% non-contiguous), 2622/16384 blocks

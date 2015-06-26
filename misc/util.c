@@ -44,6 +44,7 @@
 #include "e2p/e2p.h"
 #include "ext2fs/ext2_fs.h"
 #include "ext2fs/ext2fs.h"
+#include "ext2fs/ext2fsP.h"
 #include "support/nls-enable.h"
 #include "blkid/blkid.h"
 #include "util.h"
@@ -249,13 +250,20 @@ unsigned int figure_journal_size(int size, ext2_filsys fs)
 	}
 
 	if (size > 0) {
+		int min_size;
+
+		if (ext2fs_is_before_linux_ver(3, 10, 0) ||
+		    ext2fs_blocks_count(fs->super) <= 8192)
+			min_size = 1024;
+		else
+			min_size = 2048;
+
 		j_blocks = size * 1024 / (fs->blocksize	/ 1024);
-		if (j_blocks < 1024 || j_blocks > 10240000) {
+		if (j_blocks < min_size || j_blocks > 10240000) {
 			fprintf(stderr, _("\nThe requested journal "
 				"size is %d blocks; it must be\n"
-				"between 1024 and 10240000 blocks.  "
-				"Aborting.\n"),
-				j_blocks);
+				"between %d and 10240000 blocks.  "
+				"Aborting.\n"), j_blocks, min_size);
 			exit(1);
 		}
 		if ((unsigned) j_blocks > ext2fs_free_blocks_count(fs->super) / 2) {
