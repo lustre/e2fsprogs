@@ -46,3 +46,13 @@ RESIZE2FS_FORCE_LAZY_ITABLE_INIT=yes
 export RESIZE2FS_FORCE_LAZY_ITABLE_INIT
 E2FSPROGS_LIBMAGIC_SUPPRESS=yes
 export E2FSPROGS_LIBMAGIC_SUPPRESS
+
+if [ "$(uname -s)" = "Linux" ]; then
+	LINUX_VERSION1=`uname -r | awk -F . '{ printf $1 }'`
+	LINUX_VERSION2=`uname -r | awk -F . '{ printf $2 }'`
+	[ $LINUX_VERSION1 -ge 3 -a $LINUX_VERSION2 -ge 10 ] &&
+		CHECK_RHEL7=true || CHECK_RHEL7=false
+else
+	CHECK_RHEL7=false
+fi
+export CHECK_RHEL7
