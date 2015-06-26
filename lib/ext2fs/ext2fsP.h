@@ -145,3 +145,6 @@ extern int ext2fs_mem_is_zero(const char *mem, size_t len);
 extern int ext2fs_file_block_offset_too_big(ext2_filsys fs,
 					    struct ext2_inode *inode,
 					    blk64_t offset);
+
+extern int ext2fs_is_before_linux_ver(unsigned int major, unsigned int minor,
+				      unsigned int rev);
