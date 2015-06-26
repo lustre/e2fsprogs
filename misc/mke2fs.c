@@ -24,10 +24,6 @@
 #include <strings.h>
 #include <ctype.h>
 #include <time.h>
-#ifdef __linux__
-#include <sys/utsname.h>
-#define KERNEL_VERSION(a,b,c) (((a) << 16) + ((b) << 8) + (c))
-#endif
 #ifdef HAVE_GETOPT_H
 #include <getopt.h>
 #else
@@ -164,54 +160,6 @@ int int_log10(unsigned long long arg)
 		arg = arg / 10;
 	return l;
 }
-
-#ifdef __linux__
-static int parse_version_number(const char *s)
-{
-	int	major, minor, rev;
-	char	*endptr;
-	const char *cp = s;
-
-	if (!s)
-		return 0;
-	major = strtol(cp, &endptr, 10);
-	if (cp == endptr || *endptr != '.')
-		return 0;
-	cp = endptr + 1;
-	minor = strtol(cp, &endptr, 10);
-	if (cp == endptr || *endptr != '.')
-		return 0;
-	cp = endptr + 1;
-	rev = strtol(cp, &endptr, 10);
-	if (cp == endptr)
-		return 0;
-	return KERNEL_VERSION(major, minor, rev);
-}
-
-static int is_before_linux_ver(unsigned int major, unsigned int minor,
-			       unsigned int rev)
-{
-	struct		utsname ut;
-	static int	linux_version_code = -1;
-
-	if (uname(&ut)) {
-		perror("uname");
-		exit(1);
-	}
-	if (linux_version_code < 0)
-		linux_version_code = parse_version_number(ut.release);
-	if (linux_version_code == 0)
-		return 0;
-
-	return linux_version_code < (int) KERNEL_VERSION(major, minor, rev);
-}
-#else
-static int is_before_linux_ver(unsigned int major, unsigned int minor,
-			       unsigned int rev)
-{
-	return 0;
-}
-#endif
 
 /*
  * Helper function for read_bb_file and test_disk
@@ -1634,7 +1582,7 @@ profile_error:
 	memset(&fs_param, 0, sizeof(struct ext2_super_block));
 	fs_param.s_rev_level = 1;  /* Create revision 1 filesystems now */
 
-	if (is_before_linux_ver(2, 2, 0))
+	if (ext2fs_is_before_linux_ver(2, 2, 0))
 		fs_param.s_rev_level = 0;
 
 	if (argc && *argv) {
@@ -2152,7 +2100,8 @@ profile_error:
 
 		if (use_bsize == -1) {
 			use_bsize = sys_page_size;
-			if (is_before_linux_ver(2, 6, 0) && use_bsize > 4096)
+			if (ext2fs_is_before_linux_ver(2, 6, 0) &&
+			    use_bsize > 4096)
 				use_bsize = 4096;
 		}
 		if (lsector_size && use_bsize < lsector_size)
@@ -2384,7 +2333,7 @@ profile_error:
 	}
 
 	/* Metadata checksumming wasn't totally stable before 3.18. */
-	if (is_before_linux_ver(3, 18, 0) &&
+	if (ext2fs_is_before_linux_ver(3, 18, 0) &&
 	    ext2fs_has_feature_metadata_csum(&fs_param))
 		fprintf(stderr, _("Suggestion: Use Linux kernel >= 3.18 for "
 			"improved stability of the metadata and journal "
@@ -2394,7 +2343,7 @@ profile_error:
 	 * On newer kernels we do have lazy_itable_init support. So pick the
 	 * right default in case ext4 module is not loaded.
 	 */
-	if (is_before_linux_ver(2, 6, 37))
+	if (ext2fs_is_before_linux_ver(2, 6, 37))
 		lazy_itable_init = 0;
 	else
 		lazy_itable_init = 1;

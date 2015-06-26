@@ -44,6 +44,7 @@
 #include "e2p/e2p.h"
 #include "ext2fs/ext2_fs.h"
 #include "ext2fs/ext2fs.h"
+#include "ext2fs/ext2fsP.h"
 #include "support/nls-enable.h"
 #include "blkid/blkid.h"
 #include "util.h"
@@ -270,6 +271,14 @@ void figure_journal_size(struct ext2fs_journal_params *jparams,
 
 	if (requested_j_size > 0 ||
 		(ext2fs_has_feature_fast_commit(fs->super) && requested_fc_size > 0)) {
+		int min_size;
+
+		if (ext2fs_is_before_linux_ver(3, 10, 0) ||
+		    ext2fs_blocks_count(fs->super) <= 8192)
+			min_size = 1024;
+		else
+			min_size = 2048;
+
 		if (requested_j_size > 0)
 			jparams->num_journal_blocks =
 				jsize_to_blks(fs, requested_j_size);
@@ -280,12 +289,12 @@ void figure_journal_size(struct ext2fs_journal_params *jparams,
 		else if (!ext2fs_has_feature_fast_commit(fs->super))
 			jparams->num_fc_blocks = 0;
 		total_blocks = jparams->num_journal_blocks + jparams->num_fc_blocks;
-		if (total_blocks < 1024 || total_blocks > 10240000) {
+		if (total_blocks < min_size || total_blocks > 10240000) {
 			fprintf(stderr, _("\nThe total requested journal "
 				"size is %d blocks; it must be\n"
-				"between 1024 and 10240000 blocks.  "
+				"between %d and 10240000 blocks.  "
 				"Aborting.\n"),
-				total_blocks);
+				total_blocks, min_size);
 			exit(1);
 		}
 		if ((unsigned int) total_blocks > ext2fs_free_blocks_count(fs->super) / 2) {
