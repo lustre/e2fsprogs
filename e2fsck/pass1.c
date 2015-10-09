@@ -446,13 +446,6 @@ static void check_ea_in_inode(e2fsck_t ctx, struct problem_context *pctx)
 		/* attribute len eats this space */
 		remain -= EXT2_EXT_ATTR_SIZE(entry->e_name_len);
 
-		/* check value size */
-		if (entry->e_value_size > remain) {
-			pctx->num = entry->e_value_size;
-			problem = PR_1_ATTR_VALUE_SIZE;
-			goto fix;
-		}
-
 		if (entry->e_value_inum == 0) {
 			/* check value size */
 			if (entry->e_value_size > remain) {
