@@ -60,8 +60,9 @@ void do_icheck(int argc, char **argv)
 	int			i;
 	ext2_inode_scan		scan = 0;
 	ext2_ino_t		ino;
-	struct ext2_inode	inode;
 	errcode_t		retval;
+	struct ext2_inode	*inode;
+	int			inode_size;
 	char			*block_buf;
 
 	if (argc < 2) {
@@ -71,8 +72,14 @@ void do_icheck(int argc, char **argv)
 	if (check_fs_open(argv[0]))
 		return;
 
+	inode_size = EXT2_INODE_SIZE(current_fs->super);
+	retval = ext2fs_get_mem(inode_size, &inode);
+	if (retval)
+		return;
+
 	bw.barray = malloc(sizeof(struct block_info) * argc);
 	if (!bw.barray) {
+		ext2fs_free_mem(&inode);
 		com_err("icheck", ENOMEM,
 			"while allocating inode info array");
 		return;
@@ -99,7 +106,8 @@ void do_icheck(int argc, char **argv)
 	}
 
 	do {
-		retval = ext2fs_get_next_inode(scan, &ino, &inode);
+		retval = ext2fs_get_next_inode_full(scan, &ino,
+						    inode, inode_size);
 	} while (retval == EXT2_ET_BAD_BLOCK_IN_INODE_TABLE);
 	if (retval) {
 		com_err("icheck", retval, "while starting inode scan");
@@ -109,27 +117,27 @@ void do_icheck(int argc, char **argv)
 	while (ino) {
 		blk64_t blk;
 
-		if (!inode.i_links_count)
+		if (!inode->i_links_count)
 			goto next;
 
 		bw.inode = ino;
 
-		blk = ext2fs_file_acl_block(current_fs, &inode);
+		blk = ext2fs_file_acl_block(current_fs, inode);
 		if (blk) {
 			icheck_proc(current_fs, &blk, 0,
 				    0, 0, &bw);
 			if (bw.blocks_left == 0)
 				break;
-			ext2fs_file_acl_block_set(current_fs, &inode, blk);
+			ext2fs_file_acl_block_set(current_fs, inode, blk);
 		}
 
-		if (!ext2fs_inode_has_valid_blocks2(current_fs, &inode))
+		if (!ext2fs_inode_has_valid_blocks2(current_fs, inode))
 			goto next;
 		/*
 		 * To handle filesystems touched by 0.3c extfs; can be
 		 * removed later.
 		 */
-		if (inode.i_dtime)
+		if (inode->i_dtime)
 			goto next;
 
 		retval = ext2fs_block_iterate3(current_fs, ino,
@@ -146,7 +154,8 @@ void do_icheck(int argc, char **argv)
 
 	next:
 		do {
-			retval = ext2fs_get_next_inode(scan, &ino, &inode);
+			retval = ext2fs_get_next_inode_full(scan, &ino,
+							    inode, inode_size);
 		} while (retval == EXT2_ET_BAD_BLOCK_IN_INODE_TABLE);
 		if (retval) {
 			com_err("icheck", retval,
@@ -165,6 +174,7 @@ void do_icheck(int argc, char **argv)
 	}
 
 error_out:
+	ext2fs_free_mem(&inode);
 	free(bw.barray);
 	free(block_buf);
 	if (scan)

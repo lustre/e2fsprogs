@@ -1549,26 +1549,33 @@ static int inode_scan_and_fix(ext2_filsys fs, ext2fs_block_bitmap bmap)
 	ext2_ino_t ino;
 	blk64_t blk;
 	char *block_buf = 0;
-	struct ext2_inode inode;
+	struct ext2_inode *inode;
+	int inode_size;
 	ext2_inode_scan	scan = NULL;
+
+	inode_size = EXT2_INODE_SIZE(fs->super);
+	retval = ext2fs_get_mem(inode_size, &inode);
+	if (retval)
+		return retval;
 
 	retval = ext2fs_get_mem(fs->blocksize * 3, &block_buf);
 	if (retval)
-		return retval;
+		goto err_out;
 
 	retval = ext2fs_open_inode_scan(fs, 0, &scan);
 	if (retval)
 		goto err_out;
 
 	while (1) {
-		retval = ext2fs_get_next_inode(scan, &ino, &inode);
+		retval = ext2fs_get_next_inode_full(scan, &ino,
+						    inode, inode_size);
 		if (retval)
 			goto err_out;
 
 		if (!ino)
 			break;
 
-		if (inode.i_links_count == 0)
+		if (inode->i_links_count == 0)
 			continue; /* inode not in use */
 
 		/* FIXME!!
@@ -1578,26 +1585,26 @@ static int inode_scan_and_fix(ext2_filsys fs, ext2fs_block_bitmap bmap)
 		 * Do we need to fix this ??
 		 */
 
-		if (ext2fs_file_acl_block(fs, &inode) &&
+		if (ext2fs_file_acl_block(fs, inode) &&
 		    ext2fs_test_block_bitmap2(bmap,
-					ext2fs_file_acl_block(fs, &inode))) {
+					ext2fs_file_acl_block(fs, inode))) {
 			blk = translate_block(ext2fs_file_acl_block(fs,
-								    &inode));
+								    inode));
 			if (!blk)
 				continue;
 
-			ext2fs_file_acl_block_set(fs, &inode, blk);
+			ext2fs_file_acl_block_set(fs, inode, blk);
 
 			/*
 			 * Write the inode to disk so that inode table
 			 * resizing can work
 			 */
-			retval = ext2fs_write_inode(fs, ino, &inode);
+			retval = ext2fs_write_inode(fs, ino, inode);
 			if (retval)
 				goto err_out;
 		}
 
-		if (!ext2fs_inode_has_valid_blocks2(fs, &inode))
+		if (!ext2fs_inode_has_valid_blocks2(fs, inode))
 			continue;
 
 		retval = ext2fs_block_iterate3(fs, ino, 0, block_buf,
@@ -1608,6 +1615,7 @@ static int inode_scan_and_fix(ext2_filsys fs, ext2fs_block_bitmap bmap)
 	}
 
 err_out:
+	ext2fs_free_mem(&inode);
 	ext2fs_free_mem(&block_buf);
 	ext2fs_close_inode_scan(scan);
 

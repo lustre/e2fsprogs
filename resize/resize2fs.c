@@ -1584,8 +1584,8 @@ static errcode_t inode_scan_and_fix(ext2_resize_t rfs)
 	pb.error = 0;
 	new_inode = EXT2_FIRST_INODE(rfs->new_fs->super);
 	inode_size = EXT2_INODE_SIZE(rfs->new_fs->super);
-	inode = malloc(inode_size);
-	if (!inode) {
+	retval = ext2fs_get_mem(inode_size, &inode);
+	if (retval) {
 		retval = ENOMEM;
 		goto errout;
 	}
@@ -1677,7 +1677,8 @@ errout:
 		ext2fs_close_inode_scan(scan);
 	if (block_buf)
 		ext2fs_free_mem(&block_buf);
-	free(inode);
+	if (inode)
+		ext2fs_free_mem(&inode);
 	return retval;
 }
 

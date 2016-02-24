@@ -88,12 +88,12 @@ static void print_resource_track(struct resource_track *track)
 int main (int argc, char *argv[])
 {
 	errcode_t	retval = 0;
-	int		exit_value = 0;
 	int		i;
 	ext2_filsys	fs;
 	ext2_inode_scan	scan;
 	ext2_ino_t	ino;
-	struct ext2_inode inode;
+	struct ext2_inode *inode;
+	int inode_size;
 
 	printf(_("size of inode=%d\n"), sizeof(inode));
 
@@ -114,17 +114,26 @@ int main (int argc, char *argv[])
 		com_err(argv[0], retval, _("while opening inode scan"));
 		exit(1);
 	}
-	retval = ext2fs_get_next_inode(scan, &ino, &inode);
+
+	inode_size = EXT2_INODE_SIZE(fs->super);
+	retval = ext2fs_get_mem(inode_size, &inode);
+	if (retval) {
+		com_err(argv[0], retval, _("while allocating inode memory"));
+		exit(1);
+	}
+	retval = ext2fs_get_next_inode_full(scan, &ino,
+					    inode, inode_size);
 	if (retval) {
 		com_err(argv[0], retval, _("while starting inode scan"));
 		exit(1);
 	}
 	while (ino) {
-		if (!inode.i_links_count)
+		if (!inode->i_links_count)
 			goto next;
-		printf("%lu\n", inode.i_blocks);
+		printf("%lu\n", inode->i_blocks);
 	next:
-		retval = ext2fs_get_next_inode(scan, &ino, &inode);
+		retval = ext2fs_get_next_inode_full(scan, &ino,
+						    inode, inode_size);
 		if (retval) {
 			com_err(argv[0], retval,
 				_("while doing inode scan"));
@@ -133,9 +142,9 @@ int main (int argc, char *argv[])
 	}
 
 
+	ext2fs_free_mem(&inode);
 	ext2fs_close_free(&fs);
 
 	print_resource_track(&global_rtrack);
-
-	return exit_value;
+	return 0;
 }

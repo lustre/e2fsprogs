@@ -99,7 +99,7 @@ struct process_block_struct {
 
 struct process_inode_block {
 	ext2_ino_t ino;
-	struct ext2_inode inode;
+	struct ext2_inode_large inode;
 };
 
 struct scan_callback_struct {
@@ -1010,11 +1010,9 @@ void e2fsck_pass1(e2fsck_t ctx)
 		return;
 	}
 	inode_size = EXT2_INODE_SIZE(fs->super);
-	inode = (struct ext2_inode *)
-		e2fsck_allocate_memory(ctx, inode_size, "scratch inode");
+	inode = e2fsck_allocate_memory(ctx, inode_size, "scratch inode");
 
-	inodes_to_process = (struct process_inode_block *)
-		e2fsck_allocate_memory(ctx,
+	inodes_to_process = e2fsck_allocate_memory(ctx,
 				       (ctx->process_inode_size *
 					sizeof(struct process_inode_block)),
 				       "array of inodes to process");
@@ -1063,7 +1061,7 @@ void e2fsck_pass1(e2fsck_t ctx)
 		goto endit;
 	}
 	ext2fs_inode_scan_flags(scan, EXT2_SF_SKIP_MISSING_ITABLE, 0);
-	ctx->stashed_inode = inode;
+	ctx->stashed_inode = (struct ext2_inode_large *)inode;
 	scan_struct.ctx = ctx;
 	scan_struct.block_buf = block_buf;
 	ext2fs_set_inode_callback(scan, scan_callback, &scan_struct);
@@ -1525,7 +1523,8 @@ void e2fsck_pass1(e2fsck_t ctx)
 		     inode->i_block[EXT2_TIND_BLOCK] ||
 		     ext2fs_file_acl_block(fs, inode))) {
 			inodes_to_process[process_inode_count].ino = ino;
-			inodes_to_process[process_inode_count].inode = *inode;
+			inodes_to_process[process_inode_count].inode =
+							*((struct ext2_inode_large *)inode);
 			process_inode_count++;
 		} else
 			check_blocks(ctx, &pctx, block_buf);
@@ -1676,7 +1675,7 @@ static errcode_t scan_callback(ext2_filsys fs,
 static void process_inodes(e2fsck_t ctx, char *block_buf)
 {
 	int			i;
-	struct ext2_inode	*old_stashed_inode;
+	struct ext2_inode_large	*old_stashed_inode;
 	ext2_ino_t		old_stashed_ino;
 	const char		*old_operation;
 	char			buf[80];
@@ -1694,7 +1693,8 @@ static void process_inodes(e2fsck_t ctx, char *block_buf)
 		      sizeof(struct process_inode_block), process_inode_cmp);
 	clear_problem_context(&pctx);
 	for (i=0; i < process_inode_count; i++) {
-		pctx.inode = ctx->stashed_inode = &inodes_to_process[i].inode;
+		ctx->stashed_inode = &inodes_to_process[i].inode;
+		pctx.inode = (struct ext2_inode *)ctx->stashed_inode;
 		pctx.ino = ctx->stashed_ino = inodes_to_process[i].ino;
 
 #if 0
@@ -1732,8 +1732,8 @@ static EXT2_QSORT_TYPE process_inode_cmp(const void *a, const void *b)
 		 * inodes, so it's OK to pass NULL to
 		 * ext2fs_file_acl_block() here.
 		 */
-		ret = ext2fs_file_acl_block(0, &(ib_a->inode)) -
-			ext2fs_file_acl_block(0, &(ib_b->inode));
+		ret = ext2fs_file_acl_block(0, (struct ext2_inode *)&(ib_a->inode)) -
+			ext2fs_file_acl_block(0, (struct ext2_inode *)&(ib_b->inode));
 	if (ret == 0)
 		ret = ib_a->ino - ib_b->ino;
 	return ret;
@@ -3436,7 +3436,7 @@ static errcode_t pass1_read_inode(ext2_filsys fs, ext2_ino_t ino,
 
 	if ((ino != ctx->stashed_ino) || !ctx->stashed_inode)
 		return EXT2_ET_CALLBACK_NOTHANDLED;
-	*inode = *ctx->stashed_inode;
+	*inode = *(struct ext2_inode *)ctx->stashed_inode;
 	return 0;
 }
 
@@ -3446,8 +3446,8 @@ static errcode_t pass1_write_inode(ext2_filsys fs, ext2_ino_t ino,
 	e2fsck_t ctx = (e2fsck_t) fs->priv_data;
 
 	if ((ino == ctx->stashed_ino) && ctx->stashed_inode &&
-		(inode != ctx->stashed_inode))
-		*ctx->stashed_inode = *inode;
+		(inode != (struct ext2_inode *)ctx->stashed_inode))
+		*(struct ext2_inode *)ctx->stashed_inode = *inode;
 	return EXT2_ET_CALLBACK_NOTHANDLED;
 }
 

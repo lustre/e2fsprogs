@@ -489,7 +489,7 @@ errcode_t ext2fs_get_next_inode_full(ext2_inode_scan scan, ext2_ino_t *ino,
 			       (struct ext2_inode_large *) scan->temp_buffer,
 			       0, bufsize);
 #else
-		*inode = *((struct ext2_inode *) scan->temp_buffer);
+		memcpy(inode, scan->temp_buffer, bufsize);
 #endif
 		if (scan->scan_flags & EXT2_SF_BAD_EXTRA_BYTES)
 			retval = EXT2_ET_BAD_BLOCK_IN_INODE_TABLE;

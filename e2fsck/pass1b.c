@@ -270,7 +270,8 @@ static void pass1b(e2fsck_t ctx, char *block_buf)
 {
 	ext2_filsys fs = ctx->fs;
 	ext2_ino_t ino = 0;
-	struct ext2_inode inode;
+	struct ext2_inode *inode;
+	int inode_size;
 	ext2_inode_scan	scan;
 	struct process_block_struct pb;
 	struct problem_context pctx;
@@ -286,7 +287,15 @@ static void pass1b(e2fsck_t ctx, char *block_buf)
 		ctx->flags |= E2F_FLAG_ABORT;
 		return;
 	}
-	ctx->stashed_inode = &inode;
+	inode_size = EXT2_INODE_SIZE(fs->super);
+	pctx.errcode = ext2fs_get_mem(inode_size, &inode);
+	if (pctx.errcode) {
+		ext2fs_close_inode_scan(scan);
+		ctx->flags |= E2F_FLAG_ABORT;
+		return;
+	}
+
+	ctx->stashed_inode = (struct ext2_inode_large *)inode;
 	pb.ctx = ctx;
 	pb.pctx = &pctx;
 	pctx.str = "pass1b";
@@ -295,7 +304,8 @@ static void pass1b(e2fsck_t ctx, char *block_buf)
 			if (e2fsck_mmp_update(fs))
 				fatal_error(ctx, 0);
 		}
-		pctx.errcode = ext2fs_get_next_inode(scan, &ino, &inode);
+		pctx.errcode = ext2fs_get_next_inode_full(scan, &ino,
+						     inode, inode_size);
 		if (pctx.errcode == EXT2_ET_BAD_BLOCK_IN_INODE_TABLE)
 			continue;
 		if (pctx.errcode) {
@@ -313,22 +323,22 @@ static void pass1b(e2fsck_t ctx, char *block_buf)
 
 		pb.ino = ino;
 		pb.dup_blocks = 0;
-		pb.inode = &inode;
+		pb.inode = inode;
 		pb.cur_cluster = ~0;
 		pb.phys_cluster = ~0;
 
-		if (ext2fs_inode_has_valid_blocks2(fs, &inode) ||
+		if (ext2fs_inode_has_valid_blocks2(fs, inode) ||
 		    (ino == EXT2_BAD_INO))
 			pctx.errcode = ext2fs_block_iterate3(fs, ino,
 					     BLOCK_FLAG_READ_ONLY, block_buf,
 					     process_pass1b_block, &pb);
 		/* If the feature is not set, attrs will be cleared later anyway */
 		if ((fs->super->s_feature_compat & EXT2_FEATURE_COMPAT_EXT_ATTR) &&
-		    ext2fs_file_acl_block(fs, &inode)) {
-			blk64_t blk = ext2fs_file_acl_block(fs, &inode);
+		    ext2fs_file_acl_block(fs, inode)) {
+			blk64_t blk = ext2fs_file_acl_block(fs, inode);
 			process_pass1b_block(fs, &blk,
 					     BLOCK_COUNT_EXTATTR, 0, 0, &pb);
-			ext2fs_file_acl_block_set(fs, &inode, blk);
+			ext2fs_file_acl_block_set(fs, inode, blk);
 		}
 		if (pb.dup_blocks) {
 			end_problem_latch(ctx, PR_LATCH_DBLOCK);
@@ -339,6 +349,7 @@ static void pass1b(e2fsck_t ctx, char *block_buf)
 		if (pctx.errcode)
 			fix_problem(ctx, PR_1B_BLOCK_ITERATE, &pctx);
 	}
+	ext2fs_free_mem(&inode);
 	ext2fs_close_inode_scan(scan);
 	e2fsck_use_inode_shortcuts(ctx, 0);
 }

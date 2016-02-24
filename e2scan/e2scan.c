@@ -320,7 +320,8 @@ int main(int argc, char **argv)
 	errcode_t retval;
 	char *block_buf;
 	ext2_inode_scan scan;
-	struct ext2_inode inode;
+	struct ext2_inode *inode;
+	int inode_size;
 	ext2_ino_t ino;
 	dgrp_t nr;
 	time_t t;
@@ -537,6 +538,13 @@ int main(int argc, char **argv)
 	default:
 		break;
 	}
+	inode_size = EXT2_INODE_SIZE(fs->super);
+	retval = ext2fs_get_mem(inode_size, &inode);
+	if (retval) {
+		fprintf(stderr, "%s: failed to allocate inode memory\n",
+				argv[0]);
+		exit(1);
+	}
 
 	t = time(NULL);
 	fprintf(stderr, "scanning inode tables .. ");
@@ -544,7 +552,8 @@ int main(int argc, char **argv)
 
 	done_group_callback(fs, scan, -readahead_groups * 2, NULL);
 	done_group_callback(fs, scan, -readahead_groups, NULL);
-	while (ext2fs_get_next_inode(scan, &ino, &inode) == 0) {
+	while (ext2fs_get_next_inode_full(scan, &ino,
+					  inode, inode_size) == 0) {
 		if (ino == 0)
 			break;
 
@@ -554,12 +563,12 @@ int main(int argc, char **argv)
 			continue;
 		switch (scan_data.mode) {
 		case SM_DATABASE:
-			database_iscan_action(ino, &inode, scan_data.db.fd,
+			database_iscan_action(ino, inode, scan_data.db.fd,
 					      block_buf);
 			break;
 
 		case SM_FILELIST:
-			filelist_iscan_action(ino, &inode, block_buf);
+			filelist_iscan_action(ino, inode, block_buf);
 			break;
 
 		default:
@@ -650,6 +659,7 @@ int main(int argc, char **argv)
 	ext2fs_close_inode_scan(scan);
 	ext2fs_close(fs);
 	free(block_buf);
+	ext2fs_free_mem(&inode);
 
 	return 0;
 }

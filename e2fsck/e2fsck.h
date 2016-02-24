@@ -314,7 +314,7 @@ struct e2fsck_struct {
 	 * For pass1_check_directory and pass1_get_blocks
 	 */
 	ext2_ino_t stashed_ino;
-	struct ext2_inode *stashed_inode;
+	struct ext2_inode_large *stashed_inode;
 
 	/*
 	 * Location of the lost and found directory

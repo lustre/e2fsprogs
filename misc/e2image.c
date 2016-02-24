@@ -1255,7 +1255,8 @@ static void output_qcow2_meta_data_blocks(ext2_filsys fs, int fd)
 static void write_raw_image_file(ext2_filsys fs, int fd, int type, int flags)
 {
 	struct process_block_struct	pb;
-	struct ext2_inode		inode;
+	struct ext2_inode		*inode;
+	int				inode_size;
 	ext2_inode_scan			scan;
 	ext2_ino_t			ino;
 	errcode_t			retval;
@@ -1298,10 +1299,19 @@ static void write_raw_image_file(ext2_filsys fs, int fd, int type, int flags)
 		exit(1);
 	}
 
+	inode_size = EXT2_INODE_SIZE(fs->super);
+	retval = ext2fs_get_mem(inode_size, &inode);
+	if (retval) {
+		com_err(program_name, retval,
+			_("while allocating inode memory"));
+		exit(1);
+	}
+
 	use_inode_shortcuts(fs, 1);
-	stashed_inode = &inode;
+	stashed_inode = inode;
 	while (1) {
-		retval = ext2fs_get_next_inode(scan, &ino, &inode);
+		retval = ext2fs_get_next_inode_full(scan, &ino,
+						    inode, inode_size);
 		if (retval == EXT2_ET_BAD_BLOCK_IN_INODE_TABLE)
 			continue;
 		if (retval) {
@@ -1311,22 +1321,22 @@ static void write_raw_image_file(ext2_filsys fs, int fd, int type, int flags)
 		}
 		if (ino == 0)
 			break;
-		if (!inode.i_links_count)
+		if (!inode->i_links_count)
 			continue;
-		if (ext2fs_file_acl_block(fs, &inode)) {
+		if (ext2fs_file_acl_block(fs, inode)) {
 			ext2fs_mark_block_bitmap2(meta_block_map,
-					ext2fs_file_acl_block(fs, &inode));
+					ext2fs_file_acl_block(fs, inode));
 			meta_blocks_count++;
 		}
-		if (!ext2fs_inode_has_valid_blocks2(fs, &inode))
+		if (!ext2fs_inode_has_valid_blocks2(fs, inode))
 			continue;
 
 		stashed_ino = ino;
 		pb.ino = ino;
-		pb.is_dir = LINUX_S_ISDIR(inode.i_mode);
-		if (LINUX_S_ISDIR(inode.i_mode) ||
-		    (LINUX_S_ISLNK(inode.i_mode) &&
-		     ext2fs_inode_has_valid_blocks2(fs, &inode)) ||
+		pb.is_dir = LINUX_S_ISDIR(inode->i_mode);
+		if (LINUX_S_ISDIR(inode->i_mode) ||
+		    (LINUX_S_ISLNK(inode->i_mode) &&
+		     ext2fs_inode_has_valid_blocks2(fs, inode)) ||
 		    ino == fs->super->s_journal_inum) {
 			retval = ext2fs_block_iterate3(fs, ino,
 					BLOCK_FLAG_READ_ONLY, block_buf,
@@ -1338,10 +1348,10 @@ static void write_raw_image_file(ext2_filsys fs, int fd, int type, int flags)
 				exit(1);
 			}
 		} else {
-			if ((inode.i_flags & EXT4_EXTENTS_FL) ||
-			    inode.i_block[EXT2_IND_BLOCK] ||
-			    inode.i_block[EXT2_DIND_BLOCK] ||
-			    inode.i_block[EXT2_TIND_BLOCK] || all_data) {
+			if ((inode->i_flags & EXT4_EXTENTS_FL) ||
+			    inode->i_block[EXT2_IND_BLOCK] ||
+			    inode->i_block[EXT2_DIND_BLOCK] ||
+			    inode->i_block[EXT2_TIND_BLOCK] || all_data) {
 				retval = ext2fs_block_iterate3(fs,
 				       ino, BLOCK_FLAG_READ_ONLY, block_buf,
 				       process_file_block, &pb);
@@ -1360,6 +1370,7 @@ static void write_raw_image_file(ext2_filsys fs, int fd, int type, int flags)
 	else
 		output_meta_data_blocks(fs, fd, flags);
 
+	ext2fs_free_mem(&inode);
 	ext2fs_free_mem(&block_buf);
 	ext2fs_close_inode_scan(scan);
 	ext2fs_free_block_bitmap(meta_block_map);

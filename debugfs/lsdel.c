@@ -78,7 +78,8 @@ void do_lsdel(int argc, char **argv)
 	int			num_delarray, max_delarray;
 	ext2_inode_scan		scan = 0;
 	ext2_ino_t		ino;
-	struct ext2_inode	inode;
+	struct ext2_inode	*inode = NULL;
+	int			inode_size;
 	errcode_t		retval;
 	char			*block_buf;
 	int			i;
@@ -121,9 +122,14 @@ void do_lsdel(int argc, char **argv)
 			"while opening inode scan");
 		goto error_out;
 	}
+	inode_size = EXT2_INODE_SIZE(current_fs->super);
+	retval = ext2fs_get_mem(inode_size, &inode);
+	if (retval)
+		goto error_out;
 
 	do {
-		retval = ext2fs_get_next_inode(scan, &ino, &inode);
+		retval = ext2fs_get_next_inode_full(scan, &ino,
+						    inode, inode_size);
 	} while (retval == EXT2_ET_BAD_BLOCK_IN_INODE_TABLE);
 	if (retval) {
 		com_err("ls_deleted_inodes", retval,
@@ -132,8 +138,8 @@ void do_lsdel(int argc, char **argv)
 	}
 
 	while (ino) {
-		if ((inode.i_dtime == 0) ||
-		    (secs && ((unsigned) abs(now - secs) > inode.i_dtime)))
+		if ((inode->i_dtime == 0) ||
+		    (secs && ((unsigned) abs(now - secs) > inode->i_dtime)))
 			goto next;
 
 		lsd.inode = ino;
@@ -163,10 +169,10 @@ void do_lsdel(int argc, char **argv)
 			}
 
 			delarray[num_delarray].ino = ino;
-			delarray[num_delarray].mode = inode.i_mode;
-			delarray[num_delarray].uid = inode_uid(inode);
-			delarray[num_delarray].size = EXT2_I_SIZE(&inode);
-			delarray[num_delarray].dtime = inode.i_dtime;
+			delarray[num_delarray].mode = inode->i_mode;
+			delarray[num_delarray].uid = inode_uid(*inode);
+			delarray[num_delarray].size = EXT2_I_SIZE(inode);
+			delarray[num_delarray].dtime = inode->i_dtime;
 			delarray[num_delarray].num_blocks = lsd.num_blocks;
 			delarray[num_delarray].free_blocks = lsd.free_blocks;
 			num_delarray++;
@@ -174,7 +180,8 @@ void do_lsdel(int argc, char **argv)
 
 	next:
 		do {
-			retval = ext2fs_get_next_inode(scan, &ino, &inode);
+			retval = ext2fs_get_next_inode_full(scan, &ino,
+							inode, inode_size);
 		} while (retval == EXT2_ET_BAD_BLOCK_IN_INODE_TABLE);
 		if (retval) {
 			com_err("ls_deleted_inodes", retval,
@@ -201,6 +208,7 @@ void do_lsdel(int argc, char **argv)
 	close_pager(out);
 
 error_out:
+	ext2fs_free_mem(&inode);
 	free(block_buf);
 	free(delarray);
 	if (scan)

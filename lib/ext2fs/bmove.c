@@ -100,11 +100,17 @@ errcode_t ext2fs_move_blocks(ext2_filsys fs,
 			     int flags)
 {
 	ext2_ino_t	ino;
-	struct ext2_inode inode;
+	struct ext2_inode *inode;
+	int inode_size;
 	errcode_t	retval;
 	struct process_block_struct pb;
 	ext2_inode_scan	scan;
-	char		*block_buf;
+	char		*block_buf = NULL;
+
+	inode_size = EXT2_INODE_SIZE(fs->super);
+	retval = ext2fs_get_mem(inode_size, &inode);
+	if (retval)
+		return retval;
 
 	retval = ext2fs_open_inode_scan(fs, 0, &scan);
 	if (retval)
@@ -132,20 +138,21 @@ errcode_t ext2fs_move_blocks(ext2_filsys fs,
 		}
 		retval = ext2fs_init_dblist(fs, 0);
 		if (retval)
-			return retval;
+			goto error;
 	}
 
-	retval = ext2fs_get_next_inode(scan, &ino, &inode);
+	retval = ext2fs_get_next_inode_full(scan, &ino,
+					    inode, inode_size);
 	if (retval)
-		return retval;
+		goto error;
 
 	while (ino) {
-		if ((inode.i_links_count == 0) ||
-		    !ext2fs_inode_has_valid_blocks2(fs, &inode))
+		if ((inode->i_links_count == 0) ||
+		    !ext2fs_inode_has_valid_blocks2(fs, inode))
 			goto next;
 
 		pb.ino = ino;
-		pb.inode = &inode;
+		pb.inode = inode;
 
 		pb.add_dir = (LINUX_S_ISDIR(inode.i_mode) &&
 			      flags & EXT2_BMOVE_GET_DBLIST);
@@ -153,15 +160,21 @@ errcode_t ext2fs_move_blocks(ext2_filsys fs,
 		retval = ext2fs_block_iterate3(fs, ino, 0, block_buf,
 					       process_block, &pb);
 		if (retval)
-			return retval;
-		if (pb.error)
-			return pb.error;
+			goto error;
+		if (pb.error) {
+			retval = pb.error;
+			goto error;
+		}
 
 	next:
-		retval = ext2fs_get_next_inode(scan, &ino, &inode);
+		retval = ext2fs_get_next_inode_full(scan, &ino,
+						    inode, inode_size);
 		if (retval == EXT2_ET_BAD_BLOCK_IN_INODE_TABLE)
 			goto next;
 	}
+error:
+	ext2fs_free_mem(&inode);
+	ext2fs_free_mem(&block_buf);
 	return 0;
 }
 

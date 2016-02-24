@@ -140,7 +140,8 @@ static void setup(void)
  */
 static void iterate(void)
 {
-	struct ext2_inode inode;
+	struct ext2_inode *inode;
+	int inode_size;
 	ext2_inode_scan	scan;
 	errcode_t	retval;
 	ext2_ino_t	ino;
@@ -150,14 +151,23 @@ static void iterate(void)
 		com_err("iterate", retval, "While opening inode scan");
 		exit(1);
 	}
+
+	inode_size = EXT2_INODE_SIZE(test_fs->super);
+	retval = ext2fs_get_mem(inode_size, &inode);
+	if (retval) {
+		com_err("iterate", retval, "while allocating inode mem");
+		exit(1);
+	}
 	printf("Reading blocks: ");
-	retval = ext2fs_get_next_inode(scan, &ino, &inode);
+	retval = ext2fs_get_next_inode_full(scan, &ino,
+					    inode, inode_size);
 	if (retval) {
 		com_err("iterate", retval, "while reading first inode");
 		exit(1);
 	}
 	while (ino) {
-		retval = ext2fs_get_next_inode(scan, &ino, &inode);
+		retval = ext2fs_get_next_inode_full(scan, &ino,
+						    inode, inode_size);
 		if (retval == EXT2_ET_BAD_BLOCK_IN_INODE_TABLE) {
 			ext2fs_mark_inode_bitmap2(bad_inode_map, ino);
 			continue;
@@ -169,6 +179,7 @@ static void iterate(void)
 		}
 	}
 	printf("\n");
+	ext2fs_free_mem(&inode);
 	ext2fs_close_inode_scan(scan);
 }
 

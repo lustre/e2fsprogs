@@ -97,7 +97,9 @@ int main (int argc, char *argv[])
 	ext2_filsys	fs;
 	ext2_ino_t	ino;
 	__u32	num_inodes = 0;
-	struct ext2_inode inode;
+	struct ext2_inode *inode = NULL;
+	int		inode_size;
+	int		ret = 0;
 	ext2_inode_scan	scan;
 
 	init_resource_track(&global_rtrack);
@@ -117,21 +119,34 @@ int main (int argc, char *argv[])
 	retval = ext2fs_open_inode_scan(fs, inode_buffer_blocks, &scan);
 	if (retval) {
 		com_err(program_name, retval, _("while opening inode scan"));
+		ext2fs_close_free(&fs);
+		exit(1);
+	}
+
+	inode_size = EXT2_INODE_SIZE(current_fs->super);
+	retval = ext2fs_get_mem(inode_size, &inode);
+	if (retval) {
+		ext2fs_close_inode_scan(&scan);
+		ext2fs_close_free(&fs);
 		exit(1);
 	}
 
 	while (1) {
-		retval = ext2fs_get_next_inode(scan, &ino, &inode);
+		retval = ext2fs_get_next_inode_full(scan, &ino,
+						inode, inode_size);
 		if (retval) {
 			com_err(program_name, retval,
 				_("while getting next inode"));
+			ext2fs_close_inode_scan(&scan);
+			ext2fs_close_free(&fs);
+			ext2fs_free_mem(&inode);
 			exit(1);
 		}
 		if (ino == 0)
 			break;
 		num_inodes++;
 	}
-
+	ext2fs_free_mem(&inode);
 	print_resource_track(NULL, &global_rtrack);
 	printf(_("%u inodes scanned.\n"), num_inodes);
 

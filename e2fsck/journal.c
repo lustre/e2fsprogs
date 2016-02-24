@@ -296,7 +296,7 @@ static errcode_t e2fsck_get_journal(e2fsck_t ctx, journal_t **ret_journal)
 			j_inode->i_ext2.i_mode = LINUX_S_IFREG | 0600;
 			e2fsck_use_inode_shortcuts(ctx, 1);
 			ctx->stashed_ino = j_inode->i_ino;
-			ctx->stashed_inode = &j_inode->i_ext2;
+			ctx->stashed_inode = (struct ext2_inode_large *)&j_inode->i_ext2;
 			tried_backup_jnl++;
 		}
 		if (!j_inode->i_ext2.i_links_count ||

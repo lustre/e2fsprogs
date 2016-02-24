@@ -93,7 +93,8 @@ void do_ncheck(int argc, char **argv)
 	int			c, i;
 	ext2_inode_scan		scan = 0;
 	ext2_ino_t		ino;
-	struct ext2_inode	inode;
+	struct ext2_inode	*inode = NULL;
+	int			inode_size;
 	errcode_t		retval;
 	char			*tmp;
 
@@ -143,9 +144,14 @@ void do_ncheck(int argc, char **argv)
 		com_err("ncheck", retval, "while opening inode scan");
 		goto error_out;
 	}
+	inode_size = EXT2_INODE_SIZE(current_fs->super);
+	retval = ext2fs_get_mem(inode_size, &inode);
+	if (retval)
+		goto error_out;
 
 	do {
-		retval = ext2fs_get_next_inode(scan, &ino, &inode);
+		retval = ext2fs_get_next_inode_full(scan, &ino,
+						inode, inode_size);
 	} while (retval == EXT2_ET_BAD_BLOCK_IN_INODE_TABLE);
 	if (retval) {
 		com_err("ncheck", retval, "while starting inode scan");
@@ -154,16 +160,16 @@ void do_ncheck(int argc, char **argv)
 
 	printf("Inode\tPathname\n");
 	while (ino) {
-		if (!inode.i_links_count)
+		if (!inode->i_links_count)
 			goto next;
 		/*
 		 * To handle filesystems touched by 0.3c extfs; can be
 		 * removed later.
 		 */
-		if (inode.i_dtime)
+		if (inode->i_dtime)
 			goto next;
 		/* Ignore anything that isn't a directory */
-		if (!LINUX_S_ISDIR(inode.i_mode))
+		if (!LINUX_S_ISDIR(inode->i_mode))
 			goto next;
 
 		iw.position = 0;
@@ -185,7 +191,8 @@ void do_ncheck(int argc, char **argv)
 
 	next:
 		do {
-			retval = ext2fs_get_next_inode(scan, &ino, &inode);
+			retval = ext2fs_get_next_inode_full(scan, &ino,
+							inode, inode_size);
 		} while (retval == EXT2_ET_BAD_BLOCK_IN_INODE_TABLE);
 
 		if (retval) {
@@ -196,6 +203,7 @@ void do_ncheck(int argc, char **argv)
 	}
 
 error_out:
+	ext2fs_free_mem(inode);
 	free(iw.iarray);
 	if (scan)
 		ext2fs_close_inode_scan(scan);
