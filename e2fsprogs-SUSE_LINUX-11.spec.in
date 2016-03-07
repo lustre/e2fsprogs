@@ -32,7 +32,7 @@ Obsoletes:      e2fsprogs-64bit
 %endif
 #
 Version:        @E2FSPROGS_PKGVER@
-Release:        0%{_vendor}
+Release:        7%{_vendor}
 Summary:        Utilities for the Second Extended File System
 Url:            https://downloads.hpdd.intel.com/public/e2fsprogs/
 Provides:       ldiskfsprogs = %{version}
