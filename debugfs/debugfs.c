@@ -610,7 +610,7 @@ static void internal_dump_inode_extra(FILE *out,
 					entry->e_value_inum != 0;
 
 			if (name + entry->e_name_len >= end ||
-			    (!ea_inode && value + entry->e_value_size >= end) ||
+			    (!ea_inode && value + entry->e_value_size > end) ||
 			    (char *)next >= end) {
 				fprintf(out, "invalid EA entry in inode\n");
 				return;
