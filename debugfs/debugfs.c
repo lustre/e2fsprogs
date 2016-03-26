@@ -549,17 +549,32 @@ static void print_fidstr(FILE *out, ext2_ino_t inode_num, void *data, int len)
 	fprintf(out, "  fid: ");
 	/* Old larger filter_fid should only ever be used with seq = 0.
 	 * FID-on-OST should use LMA for FID_SEQ_NORMAL OST objects. */
-	if (len > sizeof(ff->ff_parent))
+	if (len == sizeof(*ff))
 		fprintf(out, "objid=%llu seq=%llu ",
 			ext2fs_le64_to_cpu(ff->ff_objid),
 			ext2fs_le64_to_cpu(ff->ff_seq));
 
-	fprintf(out, "parent="DFID" stripe=%u\n", PFID(&ff->ff_parent), stripe);
+	fprintf(out, "parent="DFID" stripe=%u", PFID(&ff->ff_parent), stripe);
+	if (len > sizeof(*ff)) {
+		struct filter_fid *ff_new = data;
+
+		fprintf(out, " stripe_size=%u stripe_count=%u",
+			ext2fs_le32_to_cpu(ff_new->ff_stripe_size),
+			ext2fs_le32_to_cpu(ff_new->ff_stripe_count));
+		if (ff_new->ff_pfl_id != 0)
+			fprintf(out, " component_id=%u component_start=%llu "
+				"component_end=%llu",
+				ext2fs_le32_to_cpu(ff_new->ff_pfl_id),
+				ext2fs_le64_to_cpu(ff_new->ff_pfl_start),
+				ext2fs_le64_to_cpu(ff_new->ff_pfl_end));
+	}
+	fprintf(out, "\n");
 }
 
 static void print_lmastr(FILE *out, ext2_ino_t inode_num, void *data, int len)
 {
 	struct lustre_mdt_attrs *lma = data;
+	struct lustre_ost_attrs *loa = data;
 
 	if (len < offsetof(typeof(*lma), lma_self_fid) +
 		  sizeof(lma->lma_self_fid)) {
@@ -572,6 +587,27 @@ static void print_lmastr(FILE *out, ext2_ino_t inode_num, void *data, int len)
 	fprintf(out, "  lma: fid="DFID" compat=%x incompat=%x\n",
 		PFID(&lma->lma_self_fid), ext2fs_le32_to_cpu(lma->lma_compat),
 		ext2fs_le32_to_cpu(lma->lma_incompat));
+	if (len >= offsetof(typeof(*loa), loa_pfl_end) +
+		  sizeof(loa->loa_pfl_end)) {
+		int idx;
+		int cnt;
+
+		fid_le_to_cpu(&loa->loa_parent_fid, &loa->loa_parent_fid);
+		idx = loa->loa_parent_fid.f_ver & PFID_STRIPE_COUNT_MASK;
+		cnt = loa->loa_parent_fid.f_ver >> PFID_STRIPE_IDX_BITS;
+		loa->loa_parent_fid.f_ver = 0;
+
+		fprintf(out, "  fid: parent="DFID" stripe=%u stripe_size=%u "
+			"stripe_count=%u", PFID(&loa->loa_parent_fid), idx,
+			ext2fs_le32_to_cpu(loa->loa_stripe_size), cnt);
+		if (loa->loa_pfl_id != 0)
+			fprintf(out, " component_id=%u component_start=%llu "
+				"component_end=%llu",
+				ext2fs_le32_to_cpu(loa->loa_pfl_id),
+				ext2fs_le64_to_cpu(loa->loa_pfl_start),
+				ext2fs_le64_to_cpu(loa->loa_pfl_end));
+		fprintf(out, "\n");
+	}
 }
 
 static void internal_dump_inode_extra(FILE *out,

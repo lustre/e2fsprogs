@@ -55,6 +55,14 @@ struct lustre_mdt_attrs {
 	__u32		lma_incompat;
 	struct lu_fid	lma_self_fid;
 };
+struct lustre_ost_attrs {
+	struct lustre_mdt_attrs	loa_lma;
+	struct lu_fid		loa_parent_fid;
+	__u32			loa_stripe_size;
+	__u32			loa_pfl_id;
+	__u64			loa_pfl_start;
+	__u64			loa_pfl_end;
+};
 #endif
 
 struct filter_fid_old {
@@ -63,7 +71,19 @@ struct filter_fid_old {
 	__u64		ff_seq;
 };
 
+struct filter_fid {
+	struct lu_fid	ff_parent;
+	__u32		ff_stripe_size;
+	__u32		ff_stripe_count;
+	__u64		ff_pfl_start;
+	__u64		ff_pfl_end;
+	__u32		ff_pfl_id;
+};
+
 #define LMA_OLD_SIZE 64
 #endif /* !LMA_OLD_SIZE */
+
+#define PFID_STRIPE_IDX_BITS	16
+#define PFID_STRIPE_COUNT_MASK	((1 << PFID_STRIPE_IDX_BITS) - 1)
 
 #endif /* LFSCK_H */
