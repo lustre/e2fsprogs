@@ -99,6 +99,7 @@
 
 #include "e2fsck.h"
 #include "problem.h"
+#include "ext2fs/lfsck.h"
 
 #ifdef __GNUC__
 #define _INLINE_ __inline__
@@ -348,6 +349,33 @@ static _INLINE_ void expand_inode_expression(FILE *f, ext2_filsys fs, char ch,
 	}
 }
 
+const struct lu_fid *get_dirent_fid(struct ext2_dir_entry *dirent)
+{
+	unsigned char *data = (unsigned char *)dirent->name +
+			      (dirent->name_len & EXT2_NAME_LEN) + 1;
+	__u8 file_type = dirent->name_len >> 8;
+	struct lu_fid *fid = NULL;
+	__u8 dirdata_mask;
+
+	for (dirdata_mask = EXT2_FT_MASK + 1;
+	     dirdata_mask != 0; dirdata_mask <<= 1) {
+		int dlen;
+
+		if ((dirdata_mask & file_type) == 0)
+			continue;
+
+		dlen = data[0];
+		if (dirdata_mask == EXT2_DIRENT_LUFID) {
+			fid = (struct lu_fid *)(data + 1);
+			fid_be_to_cpu(fid, fid);
+			break;
+		}
+		data += dlen;
+	}
+
+	return fid;
+}
+
 /*
  * This function expands '%dX' expressions
  */
@@ -363,9 +391,17 @@ static _INLINE_ void expand_dirent_expression(FILE *f, ext2_filsys fs, char ch,
 	dirent = ctx->dirent;
 
 	switch (ch) {
-	case 'i':
+	case 'i': {
+		const struct lu_fid *fid;
+
 		fprintf(f, "%u", dirent->inode);
+
+		fid = get_dirent_fid(dirent);
+		if (fid != NULL)
+			fprintf(f, " fid="DFID, PFID(fid));
+
 		break;
+	}
 	case 'n':
 		len = ext2fs_dirent_name_len(dirent);
 		if ((ext2fs_get_rec_len(fs, dirent, &rec_len) == 0) &&
