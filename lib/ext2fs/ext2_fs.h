@@ -310,10 +310,11 @@ struct ext2_dx_countlimit {
 #define EXT4_SNAPFILE_FL		0x01000000  /* Inode is a snapshot */
 #define EXT4_SNAPFILE_DELETED_FL	0x04000000  /* Snapshot is being deleted */
 #define EXT4_SNAPFILE_SHRUNK_FL		0x08000000  /* Snapshot shrink has completed */
+#define EXT4_PROJINHERIT_FL		0x20000000 /* Create with parents projid */
 #define EXT2_RESERVED_FL		0x80000000 /* reserved for ext2 lib */
 
-#define EXT2_FL_USER_VISIBLE		0x004BDFFF /* User visible flags */
-#define EXT2_FL_USER_MODIFIABLE		0x004B80FF /* User modifiable flags */
+#define EXT2_FL_USER_VISIBLE		0x204BDFFF /* User visible flags */
+#define EXT2_FL_USER_MODIFIABLE		0x204B80FF /* User modifiable flags */
 
 /*
  * ioctl commands
