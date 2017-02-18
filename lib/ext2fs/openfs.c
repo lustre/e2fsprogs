@@ -392,20 +392,26 @@ errcode_t ext2fs_open2(const char *name, const char *io_options,
 			goto cleanup;
 #ifdef WORDS_BIGENDIAN
 		gdp = (struct ext2_group_desc *) dest;
-		for (j=0; j < groups_per_block*first_meta_bg; j++) {
+		for (j = 0; j < groups_per_block * first_meta_bg; j++) {
 			gdp = ext2fs_group_desc(fs, fs->group_desc, j);
 			ext2fs_swap_group_desc2(fs, gdp);
 		}
 #endif
 		dest += fs->blocksize*first_meta_bg;
 	}
-	for (i=first_meta_bg ; i < fs->desc_blocks; i++) {
+
+	for (i = first_meta_bg; i < fs->desc_blocks; i++) {
+		blk = ext2fs_descriptor_block_loc2(fs, group_block, i);
+		io_channel_cache_readahead(fs->io, blk, 1);
+	}
+
+	for (i = first_meta_bg; i < fs->desc_blocks; i++) {
 		blk = ext2fs_descriptor_block_loc2(fs, group_block, i);
 		retval = io_channel_read_blk64(fs->io, blk, 1, dest);
 		if (retval)
 			goto cleanup;
 #ifdef WORDS_BIGENDIAN
-		for (j=0; j < groups_per_block; j++) {
+		for (j = 0; j < groups_per_block; j++) {
 			gdp = ext2fs_group_desc(fs, fs->group_desc,
 						i * groups_per_block + j);
 			ext2fs_swap_group_desc2(fs, gdp);
