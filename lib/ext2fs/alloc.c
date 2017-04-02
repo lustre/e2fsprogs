@@ -29,7 +29,7 @@
 /*
  * Clear the uninit block bitmap flag if necessary
  */
-static void clear_block_uninit(ext2_filsys fs, dgrp_t group)
+void ext2fs_clear_block_uninit(ext2_filsys fs, dgrp_t group)
 {
 	if (!(EXT2_HAS_RO_COMPAT_FEATURE(fs->super,
 					 EXT4_FEATURE_RO_COMPAT_GDT_CSUM)) ||
@@ -160,7 +160,7 @@ errcode_t ext2fs_new_block2(ext2_filsys fs, blk64_t goal,
 	if (retval)
 		return retval;
 
-	clear_block_uninit(fs, ext2fs_group_of_blk2(fs, b));
+	ext2fs_clear_block_uninit(fs, ext2fs_group_of_blk2(fs, b));
 	*ret = b;
 	return 0;
 }
