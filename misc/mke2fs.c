@@ -2739,15 +2739,11 @@ _("128-byte inodes cannot handle dates beyond 2038 and are deprecated\n"));
 		unsigned long long n;
 		n = ext2fs_blocks_count(&fs_param) * blocksize / inode_ratio;
 		if (n > MAX_32_NUM) {
-			if (ext2fs_has_feature_64bit(&fs_param))
-				num_inodes = MAX_32_NUM;
-			else {
+			num_inodes = MAX_32_NUM;
+			if (!ext2fs_has_feature_64bit(&fs_param))
 				com_err(program_name, 0,
-					_("too many inodes (%llu), raise "
-					  "inode ratio?"),
-					(unsigned long long) n);
-				exit(1);
-			}
+					_("too many inodes (%llu), reduced to "
+					  "%llu"), n, MAX_32_NUM);
 		}
 	} else if (num_inodes > MAX_32_NUM) {
 		com_err(program_name, 0,
