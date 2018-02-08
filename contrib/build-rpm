@@ -67,6 +67,8 @@ if [ -z "$RELEASE" ]; then
     exit 1
 fi
 case "$DISTRO-$RELEASE" in
+    Scientific-6*) DISTRO=RHEL; RELEASE=6;;
+    Scientific-7*) DISTRO=RHEL; RELEASE=7;;
     RedHatEnterpriseServer-6*) DISTRO=RHEL; RELEASE=6;;
     RedHatEnterpriseServer-7*) DISTRO=RHEL; RELEASE=7;;
     CentOS-6*) DISTRO=RHEL; RELEASE=6;;
