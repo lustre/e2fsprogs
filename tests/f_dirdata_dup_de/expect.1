@@ -1,0 +1,37 @@
+Pass 1: Checking inodes, blocks, and sizes
+Pass 2: Checking directory structure
+Duplicate entry 'f' found.
+	Marking /ROOT/dir1 (439) to be rebuilt.
+
+Entry 'foobar1' in /ROOT/dir1 (439) dirdata length set incorrectly.
+Clear? yes
+
+Entry 'foobar1' in /ROOT/dir1 (439) dirdata length set incorrectly.
+Clear? yes
+
+Pass 3: Checking directory connectivity
+Pass 3A: Optimizing directories
+Entry 'f125' in /ROOT/dir1 (439) has a non-unique filename.
+Rename to f125~0? yes
+
+Entry 'foobar1' in /ROOT/dir1 (439) has a non-unique filename.
+Rename to foobar~0? yes
+
+Entry 'f' in /ROOT/dir1 (439) has a non-unique filename.
+Rename to f~? yes
+
+Entry 'f1442' in /ROOT/dir1 (439) has a non-unique filename.
+Rename to f144~0? yes
+
+Entry 'f125' in /ROOT/dir1 (439) has a non-unique filename.
+Rename to f125~1? yes
+
+Entry 'f1442' in /ROOT/dir1 (439) has a non-unique filename.
+Rename to f144~1? yes
+
+Pass 4: Checking reference counts
+Pass 5: Checking group summary information
+
+test_filesys: ***** FILE SYSTEM WAS MODIFIED *****
+test_filesys: 543/5000 files (0.9% non-contiguous), 706/5000 blocks
+Exit status is 1
