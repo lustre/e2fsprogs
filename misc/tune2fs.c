@@ -159,6 +159,7 @@ static __u32 ok_features[3] = {
 		EXT4_FEATURE_INCOMPAT_FLEX_BG |
 		EXT4_FEATURE_INCOMPAT_EA_INODE|
 		EXT4_FEATURE_INCOMPAT_MMP |
+		EXT4_FEATURE_INCOMPAT_DIRDATA |
 		EXT4_FEATURE_INCOMPAT_64BIT |
 		EXT4_FEATURE_INCOMPAT_ENCRYPT |
 		EXT4_FEATURE_INCOMPAT_CSUM_SEED |
@@ -188,6 +189,7 @@ static __u32 clear_ok_features[3] = {
 	EXT2_FEATURE_INCOMPAT_FILETYPE |
 		EXT4_FEATURE_INCOMPAT_FLEX_BG |
 		EXT4_FEATURE_INCOMPAT_MMP |
+		EXT4_FEATURE_INCOMPAT_DIRDATA |
 		EXT4_FEATURE_INCOMPAT_64BIT |
 		EXT4_FEATURE_INCOMPAT_CSUM_SEED,
 	/* R/O compat */
@@ -1479,6 +1481,11 @@ mmp_error:
 	}
 
 	if (FEATURE_ON(E2P_FEATURE_INCOMPAT, EXT4_FEATURE_INCOMPAT_CASEFOLD)) {
+		if (ext2fs_has_feature_dirdata(sb)) {
+			fputs(_("Can not enable casefold feature on "
+				"filesystem has dirdata.\n"), stderr);
+			return 1;
+		}
 		if (mount_flags & EXT2_MF_MOUNTED) {
 			fputs(_("The casefold feature may only be enabled when "
 				"the filesystem is unmounted.\n"), stderr);
@@ -1520,6 +1527,25 @@ mmp_error:
 						    "could take some time.")))
 				return 1;
 			rewrite_checksums = REWRITE_ALL;
+		}
+	}
+
+	if (FEATURE_ON(E2P_FEATURE_INCOMPAT, EXT4_FEATURE_INCOMPAT_DIRDATA)) {
+		if (ext2fs_has_feature_inline_data(sb)) {
+			fputs(_("Can not enable dirdata feature on "
+				"filesystem has inline_data.\n"), stderr);
+			return 1;
+		}
+		if (ext2fs_has_feature_casefold(sb)) {
+			fputs(_("Can not enable dirdata feature on "
+				"filesystem has casefold.\n"), stderr);
+			return 1;
+		}
+		if (FEATURE_ON(E2P_FEATURE_INCOMPAT,
+			       EXT4_FEATURE_INCOMPAT_CASEFOLD)) {
+			fputs(_("Can not enable dirdata feature with"
+				"casefold feature.\n"), stderr);
+			return 1;
 		}
 	}
 
