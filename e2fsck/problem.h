@@ -1050,6 +1050,9 @@ struct problem_context {
 /* Inode completely corrupt */
 #define PR_2_INODE_TOOBAD		0x020051
 
+/* Entry dirdata length set incorrectly */
+#define PR_2_CLEAR_DIRDATA		0x020052
+
 /*
  * Pass 3 errors
  */

@@ -1,0 +1,36 @@
+FSCK_OPT="-fvyD"
+
+IMAGE=$test_dir/image.gz
+gunzip < $IMAGE > $TMPFILE
+
+$DEBUGFS -R 'ls -lD /ROOT/testdir' $TMPFILE 2>&1 | tail -n +2 |	\
+	sort > $test_name.1.log
+
+cmp -s $test_dir/expect.1 $test_name.1.log
+status1=$?
+
+$FSCK $FSCK_OPT -N test_filesys $TMPFILE > /dev/null 2>&1
+
+$DEBUGFS -R 'ls -lD /ROOT/testdir' $TMPFILE 2>&1 | tail -n +2 |	\
+	sort > $test_name.2.log
+cmp -s $test_dir/expect.2 $test_name.2.log
+status2=$?
+
+if [ "$status1" -eq 0 -a "$status2" -eq 0 ]; then
+	echo "$test_name: $test_description: ok"
+	touch $test_name.ok
+else
+	echo "$test_name: $test_description: failed"
+	[ $status1 -ne 0 ] &&
+		diff $DIFF_OPTS $test_dir/expect.1 $test_name.1.log	\
+			>> $test_name.failed
+	[ $status2 -ne 0 ] &&
+		diff $DIFF_OPTS $test_dir/expect.2 $test_name.2.log	\
+			>> $test_name.failed
+fi
+
+if [ "$SKIP_CLEANUP" != "true" ] ; then
+	unset IMAGE FSCK_OPT
+	unset SKIP_CLEANUP
+	unset DESCRIPTION SKIP_UNLINK
+fi
