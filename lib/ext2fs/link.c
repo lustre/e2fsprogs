@@ -47,7 +47,7 @@ static int link_proc(struct ext2_dir_entry *dirent,
 	if (ls->done)
 		return DIRENT_ABORT;
 
-	rec_len = EXT2_DIR_REC_LEN(ls->namelen);
+	rec_len = EXT2_DIR_NAME_LEN(ls->namelen);
 
 	ls->err = ext2fs_get_rec_len(ls->fs, dirent, &curr_rec_len);
 	if (ls->err)
@@ -92,8 +92,8 @@ static int link_proc(struct ext2_dir_entry *dirent,
 
 	/* De-convert a dx_root block */
 	if (csum_size &&
-	    curr_rec_len == ls->fs->blocksize - EXT2_DIR_REC_LEN(1) &&
-	    offset == EXT2_DIR_REC_LEN(1) &&
+	    curr_rec_len == ls->fs->blocksize - EXT2_DIR_NAME_LEN(1) &&
+	    offset == EXT2_DIR_NAME_LEN(1) &&
 	    dirent->name[0] == '.' && dirent->name[1] == '.') {
 		curr_rec_len -= csum_size;
 		ls->err = ext2fs_set_rec_len(ls->fs, curr_rec_len, dirent);
@@ -110,7 +110,7 @@ static int link_proc(struct ext2_dir_entry *dirent,
 	 * truncate it and return.
 	 */
 	if (dirent->inode) {
-		min_rec_len = EXT2_DIR_REC_LEN(ext2fs_dirent_name_len(dirent));
+		min_rec_len = EXT2_DIR_REC_LEN(dirent);
 		if (curr_rec_len < (min_rec_len + rec_len))
 			return ret;
 		rec_len = curr_rec_len - min_rec_len;
@@ -138,7 +138,7 @@ static int link_proc(struct ext2_dir_entry *dirent,
 	ext2fs_dirent_set_name_len(dirent, ls->namelen);
 	strncpy(dirent->name, ls->name, ls->namelen);
 	if (ext2fs_has_feature_filetype(ls->sb))
-		ext2fs_dirent_set_file_type(dirent, ls->flags & 0x7);
+		ext2fs_dirent_set_file_type(dirent, ls->flags & EXT2_FT_MASK);
 
 	ls->done++;
 	return DIRENT_ABORT|DIRENT_CHANGED;

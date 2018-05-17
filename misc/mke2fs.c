@@ -1152,6 +1152,7 @@ static __u32 ok_features[3] = {
 		EXT4_FEATURE_INCOMPAT_FLEX_BG|
 		EXT4_FEATURE_INCOMPAT_EA_INODE|
 		EXT4_FEATURE_INCOMPAT_MMP |
+		EXT4_FEATURE_INCOMPAT_DIRDATA|
 		EXT4_FEATURE_INCOMPAT_64BIT|
 		EXT4_FEATURE_INCOMPAT_INLINE_DATA|
 		EXT4_FEATURE_INCOMPAT_ENCRYPT |
@@ -3015,6 +3016,13 @@ int main (int argc, char *argv[])
 	    !ext2fs_has_feature_metadata_csum(fs->super)) {
 		printf("%s", _("The metadata_csum_seed feature "
 			       "requires the metadata_csum feature.\n"));
+		exit(1);
+	}
+
+	if (ext2fs_has_feature_inline_data(fs->super) &&
+	    ext2fs_has_feature_dirdata(fs->super)) {
+		printf("%s", _("The dirdata feature can not enabled "
+			       "with inline data feature.\n"));
 		exit(1);
 	}
 
