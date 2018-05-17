@@ -932,7 +932,8 @@ EXT4_FEATURE_INCOMPAT_FUNCS(encrypt,		4, ENCRYPT)
 #define EXT2_FEATURE_INCOMPAT_SUPP    (EXT2_FEATURE_INCOMPAT_FILETYPE| \
 				       EXT4_FEATURE_INCOMPAT_MMP| \
 				       EXT4_FEATURE_INCOMPAT_LARGEDIR| \
-				       EXT4_FEATURE_INCOMPAT_EA_INODE)
+				       EXT4_FEATURE_INCOMPAT_EA_INODE| \
+				       EXT4_FEATURE_INCOMPAT_DIRDATA)
 #define EXT2_FEATURE_RO_COMPAT_SUPP	(EXT2_FEATURE_RO_COMPAT_SPARSE_SUPER| \
 					 EXT2_FEATURE_RO_COMPAT_LARGE_FILE| \
 					 EXT4_FEATURE_RO_COMPAT_DIR_NLINK| \
@@ -1021,6 +1022,7 @@ struct ext2_dir_entry_tail {
 #define EXT2_FT_SYMLINK		7
 
 #define EXT2_FT_MAX		8
+#define EXT2_FT_MASK		0x0f
 
 /*
  * Annoyingly, e2fsprogs always swab16s ext2_dir_entry.name_len, so we
@@ -1038,10 +1040,17 @@ struct ext2_dir_entry_tail {
 #define EXT2_DIR_ENTRY_HEADER_LEN	8
 #define EXT2_DIR_PAD			4
 #define EXT2_DIR_ROUND			(EXT2_DIR_PAD - 1)
-#define EXT2_DIR_REC_LEN(name_len)	(((name_len) + \
+#define EXT2_DIR_NAME_LEN(name_len)	(((name_len) + \
 					  EXT2_DIR_ENTRY_HEADER_LEN + \
 					  EXT2_DIR_ROUND) & \
 					 ~EXT2_DIR_ROUND)
+
+#define EXT2_DIR_REC_LEN(de)	(EXT2_DIR_NAME_LEN(((de)->name_len &         \
+						     EXT2_NAME_LEN) +         \
+						    ext2_get_dirdata_size(de)))
+/* lu_fid size and NUL char */
+#define EXT2_DIRENT_LUFID_SIZE		16
+#define EXT2_DIRENT_LUFID		0x10
 
 /*
  * Constants for ext4's extended time encoding
@@ -1101,6 +1110,9 @@ struct mmp_struct {
  */
 #define EXT4_MMP_MIN_CHECK_INTERVAL     5
 
+int ext2_get_dirdata_field_size(struct ext2_dir_entry *de, char dirdata_flags);
+int ext2_get_dirdata_size(struct ext2_dir_entry *de);
+
 /*
  * Minimum size of inline data.
  */
@@ -1110,5 +1122,7 @@ struct mmp_struct {
  * Size of a parent inode in inline data directory.
  */
 #define EXT4_INLINE_DATA_DOTDOT_SIZE	(4)
+
+#define EXT2_NEXT_DIRENT(d)	((void *)((char *)(d) + (d)->rec_len))
 
 #endif	/* _LINUX_EXT2_FS_H */
