@@ -1985,6 +1985,14 @@ print_unsupp_features:
 		goto get_newer;
 	}
 
+	if (ext2fs_has_feature_dirdata(sb) &&
+	    ext2fs_has_feature_casefold(sb)) {
+		com_err(ctx->program_name, 0,
+			_("%s has both casefold and dirdata, aborting fsck"),
+			ctx->filesystem_name);
+		fatal_error(ctx, 0);
+	}
+
 	if (ext2fs_has_feature_casefold(sb) && !fs->encoding) {
 		log_err(ctx, _("%s has unsupported encoding: %0x\n"),
 			ctx->filesystem_name, sb->s_encoding);
