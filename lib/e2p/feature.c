@@ -103,6 +103,8 @@ static struct feature feature_list[] = {
 			"flex_bg"},
 	{       E2P_FEATURE_INCOMPAT, EXT4_FEATURE_INCOMPAT_EA_INODE,
 			"ea_inode"},
+	{       E2P_FEATURE_INCOMPAT, EXT4_FEATURE_INCOMPAT_EA_INODE,
+			"large_xattr"},
 	{       E2P_FEATURE_INCOMPAT, EXT4_FEATURE_INCOMPAT_DIRDATA,
 			"dirdata"},
 	{       E2P_FEATURE_INCOMPAT, EXT4_FEATURE_INCOMPAT_CSUM_SEED,
