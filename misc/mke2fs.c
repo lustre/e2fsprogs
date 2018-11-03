@@ -2007,8 +2007,7 @@ profile_error:
 	 * be appropriately configured.
 	 */
 	fs_types = parse_fs_type(fs_type, usage_types, &fs_param,
-				 fs_blocks_count ? fs_blocks_count : dev_size,
-				 argv[0]);
+				 fs_blocks_count, argv[0]);
 	if (!fs_types) {
 		fprintf(stderr, "%s", _("Failed to parse fs types list\n"));
 		exit(1);
@@ -2142,24 +2141,25 @@ profile_error:
 	 * We now need to do a sanity check of fs_blocks_count for
 	 * 32-bit vs 64-bit block number support.
 	 */
-	if ((fs_blocks_count > MAX_32_NUM) &&
-	    ext2fs_has_feature_64bit(&fs_param))
-		ext2fs_clear_feature_resize_inode(&fs_param);
-	if ((fs_blocks_count > MAX_32_NUM) &&
-	    !ext2fs_has_feature_64bit(&fs_param) &&
-	    get_bool_from_profile(fs_types, "auto_64-bit_support", 0)) {
-		ext2fs_set_feature_64bit(&fs_param);
-		ext2fs_clear_feature_resize_inode(&fs_param);
-	}
-	if ((fs_blocks_count > MAX_32_NUM) &&
-	    !ext2fs_has_feature_64bit(&fs_param)) {
-		fprintf(stderr, _("%s: Size of device (0x%llx blocks) %s "
+	if (fs_blocks_count > MAX_32_NUM) {
+		if (!ext2fs_has_feature_64bit(&fs_param) &&
+		    get_bool_from_profile(fs_types, "auto_64-bit_support", 0))
+			ext2fs_set_feature_64bit(&fs_param);
+
+		if (ext2fs_has_feature_64bit(&fs_param)) {
+			ext2fs_clear_feature_resize_inode(&fs_param);
+		} else {
+			fprintf(stderr,
+				_("%s: Size of device (0x%llx blocks) %s "
 				  "too big to be expressed\n\t"
 				  "in 32 bits using a blocksize of %d.\n"),
-			program_name, (unsigned long long) fs_blocks_count,
-			device_name, EXT2_BLOCK_SIZE(&fs_param));
-		exit(1);
+				program_name,
+				(unsigned long long) fs_blocks_count,
+				device_name, EXT2_BLOCK_SIZE(&fs_param));
+			exit(1);
+		}
 	}
+
 	/*
 	 * Guard against group descriptor count overflowing... Mostly to avoid
 	 * strange results for absurdly large devices.  This is in log2:
@@ -2239,13 +2239,13 @@ profile_error:
 		fs_param.s_feature_compat = 0;
 		fs_param.s_feature_ro_compat &=
 					EXT4_FEATURE_RO_COMPAT_METADATA_CSUM;
- 	}
+	}
 
 	/* Check the user's mkfs options for 64bit */
-	if (ext2fs_has_feature_64bit(&fs_param) &&
+	if (fs_blocks_count > MAX_32_NUM &&
 	    !ext2fs_has_feature_extents(&fs_param)) {
-		printf("%s", _("Extents MUST be enabled for a 64-bit "
-			       "filesystem.  Pass -O extents to rectify.\n"));
+		printf("%s", _("Extents MUST be enabled for filesystems with "
+			       "over 2^32 blocks. Use '-O extents' to fix.\n"));
 		exit(1);
 	}
 
