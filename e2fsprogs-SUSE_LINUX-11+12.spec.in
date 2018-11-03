@@ -250,7 +250,7 @@ make %{?_smp_mflags} V=1
 make -C po update-po
 
 %check
-make check
+make %{?_smp_mflags} fullcheck
 
 %install
 make install install-libs DESTDIR=$RPM_BUILD_ROOT ELF_INSTALL_DIR=/%{_libdir}

@@ -177,7 +177,7 @@ install -p -m 644 e2fsck.conf %{buildroot}/etc/e2fsck.conf
 %find_lang %{name}
 
 %check
-make check
+make %{?_smp_mflags} fullcheck
 
 %post libs -p /sbin/ldconfig
 %postun libs -p /sbin/ldconfig

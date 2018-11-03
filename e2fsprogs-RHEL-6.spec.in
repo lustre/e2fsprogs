@@ -176,7 +176,7 @@ chmod +w %{buildroot}%{_libdir}/*.a
 %find_lang %{name}
 
 %check
-make check
+make %{?_smp_mflags} fullcheck
 
 %post libs -p /sbin/ldconfig
 %postun libs -p /sbin/ldconfig
