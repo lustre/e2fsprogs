@@ -1417,6 +1417,9 @@ int get_bool_from_profile(char **types, const char *opt, int def_val)
 extern const char *mke2fs_default_profile;
 static const char *default_files[] = { "<default>", 0 };
 
+#define	OPTIMIZED_STRIPE_WIDTH	512
+#define	OPTIMIZED_STRIDE	512
+
 #ifdef HAVE_BLKID_PROBE_GET_TOPOLOGY
 /*
  * Sets the geometry of a device (stripe/stride), and returns the
@@ -1447,7 +1450,19 @@ static int get_device_geometry(const char *file,
 		goto out;
 
 	min_io = blkid_topology_get_minimum_io_size(tp);
+	if (min_io > OPTIMIZED_STRIDE) {
+		fprintf(stdout,
+			"detected raid stride %lu too large, use optimum %lu\n",
+			min_io, OPTIMIZED_STRIDE);
+		min_io = OPTIMIZED_STRIDE;
+	}
 	opt_io = blkid_topology_get_optimal_io_size(tp);
+	if (opt_io > OPTIMIZED_STRIPE_WIDTH) {
+		fprintf(stdout,
+			"detected raid stripe width %lu too large, use optimum %lu\n",
+			opt_io, OPTIMIZED_STRIPE_WIDTH);
+		opt_io = OPTIMIZED_STRIPE_WIDTH;
+	}
 	blocksize = EXT2_BLOCK_SIZE(param);
 	if ((min_io == 0) && (psector_size > blocksize))
 		min_io = psector_size;
