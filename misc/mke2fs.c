@@ -1503,6 +1503,9 @@ struct device_param {
 	unsigned int dax:1;		/* supports dax? */
 };
 
+#define	OPTIMIZED_STRIPE_WIDTH	512
+#define	OPTIMIZED_STRIDE	512
+
 #ifdef HAVE_BLKID_PROBE_GET_TOPOLOGY
 /*
  * Sets the geometry of a device (stripe/stride), and returns the
@@ -1533,7 +1536,19 @@ static int get_device_geometry(const char *file,
 		goto out;
 
 	dev_param->min_io = blkid_topology_get_minimum_io_size(tp);
+	if (dev_param->min_io > OPTIMIZED_STRIDE) {
+		fprintf(stdout,
+			"detected raid stride %lu too large, use optimum %u\n",
+			dev_param->min_io, OPTIMIZED_STRIDE);
+		dev_param->min_io = OPTIMIZED_STRIDE;
+	}
 	dev_param->opt_io = blkid_topology_get_optimal_io_size(tp);
+	if (dev_param->opt_io > OPTIMIZED_STRIPE_WIDTH) {
+		fprintf(stdout,
+			"detected raid stripe width %lu too large, use optimum %u\n",
+			dev_param->opt_io, OPTIMIZED_STRIPE_WIDTH);
+		dev_param->opt_io = OPTIMIZED_STRIPE_WIDTH;
+	}
 	if ((dev_param->min_io == 0) && (psector_size > blocksize))
 		dev_param->min_io = psector_size;
 	if ((dev_param->opt_io == 0) && dev_param->min_io > 0)
