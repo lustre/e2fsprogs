@@ -1535,6 +1535,8 @@ static int is_rotational (const char *device_name EXT2FS_ATTR((unused)))
 }
 
 
+#define OPTIMIZED_STRIPE_WIDTH_BLOCKS   512
+#define OPTIMIZED_STRIDE_BLOCKS         512
 /*
  * Sets the geometry of a device (stripe/stride), and returns the
  * device's alignment offset, if any, or a negative error.
@@ -1544,12 +1546,15 @@ static int get_device_geometry(const char *file,
 			       unsigned int psector_size,
 			       struct device_param *dev_param)
 {
+	/* Define optimum stride/stripe limits in bytes based on block size */
+	unsigned int optimized_stripe_width_bytes =
+		OPTIMIZED_STRIPE_WIDTH_BLOCKS * blocksize;
+	unsigned int optimized_stride_bytes =
+		OPTIMIZED_STRIDE_BLOCKS * blocksize;
 	int rc = -1;
 	blkid_probe pr;
 	blkid_topology tp;
 	struct stat statbuf;
-
-	memset(dev_param, 0, sizeof(*dev_param));
 
 	/* Nothing to do for a regular file */
 	if (!stat(file, &statbuf) && S_ISREG(statbuf.st_mode))
@@ -1564,7 +1569,19 @@ static int get_device_geometry(const char *file,
 		goto out;
 
 	dev_param->min_io = blkid_topology_get_minimum_io_size(tp);
+	if (dev_param->min_io > optimized_stride_bytes) {
+		fprintf(stdout,
+			"detected raid stride %lu too large, limit to %u bytes instead if unspecified\n",
+			dev_param->min_io, optimized_stride_bytes);
+		dev_param->min_io = optimized_stride_bytes;
+	}
 	dev_param->opt_io = blkid_topology_get_optimal_io_size(tp);
+	if (dev_param->opt_io > optimized_stripe_width_bytes) {
+		fprintf(stdout,
+			"detected raid stripe width %lu too large, limit to %u bytes instead if unspecified\n",
+			dev_param->opt_io, optimized_stripe_width_bytes);
+		dev_param->opt_io = optimized_stripe_width_bytes;
+	}
 	if ((dev_param->min_io == 0) && (psector_size > blocksize))
 		dev_param->min_io = psector_size;
 	if ((dev_param->opt_io == 0) && dev_param->min_io > 0)
@@ -1627,7 +1644,7 @@ static void PRS(int argc, char *argv[])
 	char		*newpath;
 	int		pathlen = sizeof(PATH_SET) + 1;
 #ifdef HAVE_BLKID_PROBE_GET_TOPOLOGY
-	struct device_param dev_param;
+	struct device_param dev_param = { 0 };
 #endif
 
 	if (oldpath)
