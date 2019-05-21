@@ -7,6 +7,7 @@
 /^e2image [1-9]\.[0-9]*[^ ]* ([0-9]*-[A-Za-z]*-[0-9]*)/d
 s/\\015//g
 /automatically checked/d
+/detected raid stride [0-9]* too large, use optimum [0-9]*/d
 /^Directory Hash Seed:/d
 /Discarding device blocks/d
 /^Filesystem created:/d
