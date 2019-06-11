@@ -68,14 +68,17 @@ if [ -z "$RELEASE" ]; then
 fi
 case "$DISTRO-$RELEASE" in
     Scientific-6*) DISTRO=RHEL; RELEASE=6;;
-    Scientific-7*) DISTRO=RHEL; RELEASE=7;;
+    Scientific-7*) DISTRO=RHEL; RELEASE=7+8;;
     RedHatEnterpriseServer-6*) DISTRO=RHEL; RELEASE=6;;
-    RedHatEnterpriseServer-7*) DISTRO=RHEL; RELEASE=7;;
+    RedHatEnterpriseServer-7*) DISTRO=RHEL; RELEASE=7+8;;
+    RedHatEnterprise-8*) DISTRO=RHEL; RELEASE=7+8;;
     CentOS-6*) DISTRO=RHEL; RELEASE=6;;
-    CentOS-7*) DISTRO=RHEL; RELEASE=7;;
+    CentOS-7*) DISTRO=RHEL; RELEASE=7+8;;
+    CentOS-8*) DISTRO=RHEL; RELEASE=7+8;;
     Fedora-1[1-4]) DISTRO=RHEL; RELEASE=6;;	# use the same .spec for now
-    Fedora-1[5-9]) DISTRO=RHEL; RELEASE=7;;
-    Fedora-2[0-9]) DISTRO=RHEL; RELEASE=7;;
+    Fedora-1[5-9]) DISTRO=RHEL; RELEASE=7+8;;
+    Fedora-2[0-9]) DISTRO=RHEL; RELEASE=7+8;;
+    Fedora-3[0-9]) DISTRO=RHEL; RELEASE=7+8;;
     SUSE\ LINUX-1[1-2]* | SUSE-12*) DISTRO=SUSE_LINUX; RELEASE=11+12;;
 esac
 
