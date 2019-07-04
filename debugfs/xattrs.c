@@ -173,6 +173,11 @@ static int dump_attr(char *name, char *value, size_t value_len,
 	FILE *out = data;
 
 	fprintf(out, "  ");
+	if (EXT2_HAS_INCOMPAT_FEATURE(current_fs->super,
+				      EXT4_FEATURE_INCOMPAT_EA_INODE) &&
+				      inode_num != 0) {
+		fprintf(out, "inode <%u> ", inode_num);
+	}
 	print_xattr(out, name, value, value_len, PRINT_XATTR_STATFMT);
 	if (!strncmp(name, EXT2_ATTR_INDEX_TRUSTED_PREFIX LUSTRE_XATTR_OST_FID,
 		     strlen(name)) ||
