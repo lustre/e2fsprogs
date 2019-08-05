@@ -1461,6 +1461,7 @@ int main (int argc, char *argv[])
 	}
 	reserve_stdio_fds();
 
+	ctx->global_ctx = NULL;
 	set_up_logging(ctx);
 	if (ctx->logf) {
 		int i;
