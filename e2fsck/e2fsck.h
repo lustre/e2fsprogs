@@ -261,6 +261,22 @@ struct e2fsck_fc_replay_state {
 	__u16 fc_super_state;
 };
 
+#ifdef HAVE_PTHREAD
+/*
+ * Fields that used for multi-thread
+ */
+struct e2fsck_thread {
+	/* Thread index */
+	int		et_thread_index;
+	/* The start group number for this thread */
+	dgrp_t		et_group_start;
+	/* The end (not included) group number for this thread*/
+	dgrp_t		et_group_end;
+	/* The next group number to check */
+	dgrp_t		et_group_next;
+};
+#endif
+
 struct e2fsck_struct {
 	/* Global context to get the cancel flag */
 	e2fsck_t		global_ctx;
@@ -345,8 +361,11 @@ struct e2fsck_struct {
 	 */
 	ext2_ino_t		stashed_ino;
 	struct ext2_inode	*stashed_inode;
-	/* Thread index, if global_ctx is null, this field is unused */
-	int			thread_index;
+
+	/* if @global_ctx is null, this field is unused */
+#ifdef HAVE_PTHREAD
+	struct e2fsck_thread	 thread_info;
+#endif
 
 	/*
 	 * Location of the lost and found directory

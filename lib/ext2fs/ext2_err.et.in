@@ -557,4 +557,7 @@ ec	EXT2_ET_EXTENT_CYCLE,
 ec	EXT2_ET_EXTERNAL_JOURNAL_NOSUPP,
 	"Operation not supported on an external journal"
 
+ec	EXT2_ET_SCAN_FINISHED,
+	"Scanning finished"
+
 	end
