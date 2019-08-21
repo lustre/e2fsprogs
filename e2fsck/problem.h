@@ -716,6 +716,8 @@ struct problem_context {
 /* Htree directory uses SipHash but should not */
 #define PR_1_HTREE_CANNOT_SIPHASH		0x01008E
 
+/* Failed to goto block group */
+#define PR_1_SCAN_GOTO				0x0100A0
 
 /*
  * Pass 1b errors
