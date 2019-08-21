@@ -740,6 +740,9 @@ struct problem_context {
 /* Inode references EA inode but ea_inode feature is not enabled */
 #define PR_1_EA_INODE_FEATURE			0x010092
 
+/* Failed to goto block group */
+#define PR_1_SCAN_GOTO				0x0100A0
+
 /*
  * Pass 1b errors
  */
