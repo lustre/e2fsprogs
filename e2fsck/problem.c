@@ -1279,6 +1279,10 @@ static struct e2fsck_problem problem_table[] = {
 	  N_("@h %i uses SipHash, but should not.  "),
 	  PROMPT_CLEAR_HTREE, PR_PREEN_OK, 0, 0, 0 },
 
+	/* Failed to goto block group */
+	{ PR_1_SCAN_GOTO,
+	  N_("failed to goto block group"),
+          PROMPT_NONE, PR_FATAL, 0, 0, 0 },
 
 	/* Pass 1b errors */
 
