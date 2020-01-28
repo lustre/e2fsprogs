@@ -50,13 +50,13 @@ all-progs-recursive all-libs-recursive:: subs
 e2fsprogs-RHEL-6.spec: $(DEP_SUBSTITUTE) e2fsprogs-RHEL-6.spec.in
 	cd $(top_builddir); CONFIG_FILES=./e2fsprogs-RHEL-6.spec ./config.status
 
-e2fsprogs-SUSE_LINUX-11+12.spec: $(DEP_SUBSTITUTE) e2fsprogs-SUSE_LINUX-11+12.spec.in
-	cd $(top_builddir); CONFIG_FILES=./e2fsprogs-SUSE_LINUX-11+12.spec ./config.status
+e2fsprogs-SUSE_LINUX-11+12+15.spec: $(DEP_SUBSTITUTE) e2fsprogs-SUSE_LINUX-11+12+15.spec.in
+	cd $(top_builddir); CONFIG_FILES=./e2fsprogs-SUSE_LINUX-11+12+15.spec ./config.status
 
 e2fsprogs-RHEL-7+8.spec: $(DEP_SUBSTITUTE) e2fsprogs-RHEL-7+8.spec.in
 	cd $(top_builddir); CONFIG_FILES=./e2fsprogs-RHEL-7+8.spec ./config.status
 
-rpm: e2fsprogs-RHEL-6.spec e2fsprogs-SUSE_LINUX-11+12.spec e2fsprogs-RHEL-7+8.spec
+rpm: e2fsprogs-RHEL-6.spec e2fsprogs-SUSE_LINUX-11+12+15.spec e2fsprogs-RHEL-7+8.spec
 	sh contrib/build-rpm
 
 docs:
