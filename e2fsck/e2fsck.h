@@ -106,7 +106,7 @@ struct dir_info {
  */
 struct dx_dir_info {
 	ext2_ino_t		ino; 		/* Inode number */
-	int			numblocks;	/* number of blocks */
+	blk_t			numblocks;	/* number of blocks */
 	int			hashversion;
 	short			depth;		/* depth of tree */
 	struct dx_dirblock_info	*dx_block; 	/* Array of size numblocks */
