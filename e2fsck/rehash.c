@@ -83,7 +83,7 @@ struct fill_dir_struct {
 	int max_array, num_array;
 	unsigned int dir_size;
 	int compress;
-	ino_t parent;
+	ext2_ino_t parent;
 	ext2_ino_t dir;
 	struct ext2_dir_entry *dot_de;
 	struct ext2_dir_entry *dotdot_de;

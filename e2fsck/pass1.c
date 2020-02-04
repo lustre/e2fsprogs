@@ -79,7 +79,7 @@ static void check_blocks(e2fsck_t ctx, struct problem_context *pctx,
 static void mark_table_blocks(e2fsck_t ctx);
 static void alloc_bb_map(e2fsck_t ctx);
 static void alloc_imagic_map(e2fsck_t ctx);
-static void add_encrypted_dir(e2fsck_t ctx, ino_t ino);
+static void add_encrypted_dir(e2fsck_t ctx, ext2_ino_t ino);
 static void handle_fs_bad_blocks(e2fsck_t ctx);
 static void process_inodes(e2fsck_t ctx, char *block_buf);
 static EXT2_QSORT_TYPE process_inode_cmp(const void *a, const void *b);
@@ -2413,7 +2413,7 @@ static EXT2_QSORT_TYPE process_inode_cmp(const void *a, const void *b)
 /*
  * Mark an inode as being bad and increment its badness counter.
  */
-void e2fsck_mark_inode_bad_loc(e2fsck_t ctx, ino_t ino, int count,
+void e2fsck_mark_inode_bad_loc(e2fsck_t ctx, ext2_ino_t ino, int count,
 			       const char *func, const int line)
 {
 	struct		problem_context pctx;
@@ -2438,7 +2438,7 @@ void e2fsck_mark_inode_bad_loc(e2fsck_t ctx, ino_t ino, int count,
 			func, line, (unsigned long)ino, result, count + result);
 }
 
-static void add_encrypted_dir(e2fsck_t ctx, ino_t ino)
+static void add_encrypted_dir(e2fsck_t ctx, ext2_ino_t ino)
 {
 	struct		problem_context pctx;
 
