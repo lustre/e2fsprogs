@@ -105,12 +105,12 @@ struct dir_info {
  * directories which contain a hash tree index.
  */
 struct dx_dir_info {
-	ext2_ino_t		ino; 		/* Inode number */
-	blk_t			numblocks;	/* number of blocks */
-	int			hashversion;
-	short			depth;		/* depth of tree */
-	struct dx_dirblock_info	*dx_block; 	/* Array of size numblocks */
-	int			casefolded_hash;
+	ext2_ino_t		ino;		/* Inode number */
+	short			depth;		/* depth of tree (15 bits) */
+	__u8			casefolded_hash:1;
+	__u8			hashversion;
+	blk_t			numblocks;	/* number of blocks in dir */
+	struct dx_dirblock_info	*dx_block;	/* Array of size numblocks */
 };
 
 #define DX_DIRBLOCK_ROOT	1
@@ -121,8 +121,8 @@ struct dx_dir_info {
 
 struct dx_dirblock_info {
 	int		type;
-	blk64_t		phys;
 	int		flags;
+	blk64_t		phys;
 	blk64_t		parent;
 	blk64_t		previous;
 	ext2_dirhash_t	min_hash;
