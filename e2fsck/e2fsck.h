@@ -490,6 +490,7 @@ struct e2fsck_struct {
 	/* Fast commit replay state */
 	struct e2fsck_fc_replay_state fc_replay_state;
 #ifdef HAVE_PTHREAD
+	__u32			 fs_num_threads;
 	/* serialize fix operation for multiple threads */
 	pthread_mutex_t		 fs_fix_mutex;
 	/* protect block_found_map, block_dup_map */
@@ -734,6 +735,7 @@ void check_resize_inode(e2fsck_t ctx);
 int check_init_orphan_file(e2fsck_t ctx);
 
 /* util.c */
+#define E2FSCK_MAX_THREADS	(65536)
 extern void *e2fsck_allocate_memory(e2fsck_t ctx, unsigned long size,
 				    const char *description);
 extern int ask(e2fsck_t ctx, const char * string, int def);
