@@ -2630,6 +2630,7 @@ static errcode_t e2fsck_pass1_thread_prepare(e2fsck_t global_ctx, e2fsck_t *thre
 	}
 	memcpy(thread_context, global_ctx, sizeof(struct e2fsck_struct));
 	thread_context->block_dup_map = NULL;
+	thread_context->casefolded_dirs = NULL;
 
 	retval = e2fsck_allocate_block_bitmap(global_ctx->fs,
 				_("in-use block map"), EXT2FS_BMAP64_RBTREE,
@@ -2921,6 +2922,24 @@ static errcode_t e2fsck_pass1_merge_ea_refcount(e2fsck_t global_ctx,
 	return retval;
 }
 
+static errcode_t e2fsck_pass1_merge_casefolded_dirs(e2fsck_t global_ctx,
+						   e2fsck_t thread_ctx)
+{
+	errcode_t retval = 0;
+
+	if (!thread_ctx->casefolded_dirs)
+		return 0;
+
+	if (!global_ctx->casefolded_dirs)
+		retval = ext2fs_badblocks_copy(thread_ctx->casefolded_dirs,
+					       &global_ctx->casefolded_dirs);
+	else
+		retval = ext2fs_badblocks_merge(thread_ctx->casefolded_dirs,
+						global_ctx->casefolded_dirs);
+
+	return retval;
+}
+
 static errcode_t e2fsck_pass1_merge_context(e2fsck_t global_ctx,
 					    e2fsck_t thread_ctx)
 {
@@ -2986,6 +3005,13 @@ static errcode_t e2fsck_pass1_merge_context(e2fsck_t global_ctx,
 					      thread_ctx->qctx);
 	if (retval)
 		return retval;
+
+	retval = e2fsck_pass1_merge_casefolded_dirs(global_ctx, thread_ctx);
+	if (retval) {
+		com_err(global_ctx->program_name, 0,
+			_("while merging casefolded dirs\n"));
+		return retval;
+	}
 
 	e2fsck_pass1_merge_invalid_bitmaps(global_ctx, thread_ctx);
 
