@@ -27,6 +27,8 @@ DEBUG_OBJS= debug_cmds.o extent_cmds.o tst_cmds.o debugfs.o util.o \
 	xattrs.o quota.o tst_libext2fs.o create_inode.o \
 	create_inode_libarchive.o journal.o revoke.o recovery.o do_journal.o
 
+QUOTA_LIB_OBJS= mkquota.o quotaio.o quotaio_v2.o quotaio_tree.o dict.o
+
 DEBUG_SRCS= debug_cmds.c extent_cmds.c tst_cmds.c \
 	$(top_srcdir)/debugfs/debugfs.c \
 	$(top_srcdir)/debugfs/util.c \
@@ -55,6 +57,7 @@ DEBUG_SRCS= debug_cmds.c extent_cmds.c tst_cmds.c \
 @TDB_CMT@TDB_OBJ= tdb.o
 
 OBJS= $(DEBUGFS_LIB_OBJS) $(RESIZE_LIB_OBJS) $(E2IMAGE_LIB_OBJS) \
+	$(QUOTA_LIB_OBJS) \
 	$(TEST_IO_LIB_OBJS) \
 	ext2_err.o \
 	alloc.o \
@@ -234,6 +237,7 @@ SRCS= ext2_err.c \
 
 HFILES= bitops.h ext2fs.h ext2_io.h ext2_fs.h ext2_ext_attr.h ext3_extents.h \
 	tdb.h qcow2.h hashmap.h
+QUOTA_HFILES= quotaio.h dqblk_v2.h quotaio_tree.h
 HFILES_IN=  ext2_err.h ext2_types.h ext2_types-wrapper.h
 
 LIBRARY= libext2fs
@@ -453,6 +457,41 @@ do_journal.o: $(top_srcdir)/debugfs/do_journal.c
 	$(E) "	CC $<"
 	$(Q) $(CC) $(DEBUGFS_CFLAGS) -c $< -o $@
 
+mkquota.o: $(top_srcdir)/lib/support/mkquota.c
+	$(E) "	CC $<"
+	$(Q) $(CC) -I$(top_srcdir)/lib/support $(ALL_CFLAGS_STLIB) -c $< -o $@
+@PROFILE_CMT@	$(Q) $(CC) -I$(top_srcdir)/lib/support $(ALL_CFLAGS_STLIB) -g -pg -o profiled/$*.o -c $<
+@ELF_CMT@	$(Q) $(CC) -I$(top_srcdir)/lib/support $(ALL_CFLAGS_SHLIB) -fPIC -shared -o elfshared/$*.o -c $<
+@BSDLIB_CMT@	$(Q) $(CC) -I$(top_srcdir)/lib/support $(ALL_CFLAGS_SHLIB) $(BSDLIB_PIC_FLAG) -o pic/$*.o -c $<
+
+quotaio.o: $(top_srcdir)/lib/support/quotaio.c
+	$(E) "	CC $<"
+	$(Q) $(CC) -I$(top_srcdir)/lib/support $(ALL_CFLAGS_STLIB) -c $< -o $@
+@PROFILE_CMT@	$(Q) $(CC) -I$(top_srcdir)/lib/support $(ALL_CFLAGS_STLIB) -g -pg -o profiled/$*.o -c $<
+@ELF_CMT@	$(Q) $(CC) -I$(top_srcdir)/lib/support $(ALL_CFLAGS_SHLIB) -fPIC -shared -o elfshared/$*.o -c $<
+@BSDLIB_CMT@	$(Q) $(CC) -I$(top_srcdir)/lib/support $(ALL_CFLAGS_SHLIB) $(BSDLIB_PIC_FLAG) -o pic/$*.o -c $<
+
+quotaio_v2.o: $(top_srcdir)/lib/support/quotaio_v2.c
+	$(E) "	CC $<"
+	$(Q) $(CC) -I$(top_srcdir)/lib/support $(ALL_CFLAGS_STLIB) -c $< -o $@
+@PROFILE_CMT@	$(Q) $(CC) -I$(top_srcdir)/lib/support $(ALL_CFLAGS_STLIB) -g -pg -o profiled/$*.o -c $<
+@ELF_CMT@	$(Q) $(CC) -I$(top_srcdir)/lib/support $(ALL_CFLAGS_SHLIB) -fPIC -shared -o elfshared/$*.o -c $<
+@BSDLIB_CMT@	$(Q) $(CC) -I$(top_srcdir)/lib/support $(ALL_CFLAGS_SHLIB) $(BSDLIB_PIC_FLAG) -o pic/$*.o -c $<
+
+quotaio_tree.o: $(top_srcdir)/lib/support/quotaio_tree.c
+	$(E) "	CC $<"
+	$(Q) $(CC) -I$(top_srcdir)/lib/support $(ALL_CFLAGS_STLIB) -c $< -o $@
+@PROFILE_CMT@	$(Q) $(CC) -I$(top_srcdir)/lib/support $(ALL_CFLAGS_STLIB) -g -pg -o profiled/$*.o -c $<
+@ELF_CMT@	$(Q) $(CC) -I$(top_srcdir)/lib/support $(ALL_CFLAGS_SHLIB) -fPIC -shared -o elfshared/$*.o -c $<
+@BSDLIB_CMT@	$(Q) $(CC) -I$(top_srcdir)/lib/support $(ALL_CFLAGS_SHLIB) $(BSDLIB_PIC_FLAG) -o pic/$*.o -c $<
+
+dict.o: $(top_srcdir)/lib/support/dict.c
+	$(E) "	CC $<"
+	$(Q) $(CC) -I$(top_srcdir)/lib/support $(ALL_CFLAGS_STLIB) -c $< -o $@
+@PROFILE_CMT@	$(Q) $(CC) -I$(top_srcdir)/lib/support $(ALL_CFLAGS_STLIB) -g -pg -o profiled/$*.o -c $<
+@ELF_CMT@	$(Q) $(CC) -I$(top_srcdir)/lib/support $(ALL_CFLAGS_SHLIB) -fPIC -shared -o elfshared/$*.o -c $<
+@BSDLIB_CMT@	$(Q) $(CC) -I$(top_srcdir)/lib/support $(ALL_CFLAGS_SHLIB) $(BSDLIB_PIC_FLAG) -o pic/$*.o -c $<
+
 xattrs.o: $(top_srcdir)/debugfs/xattrs.c
 	$(E) "	CC $<"
 	$(Q) $(CC) $(DEBUGFS_CFLAGS) -c $< -o $@
@@ -579,6 +618,10 @@ install:: all $(HFILES) $(HFILES_IN) installdirs ext2fs.pc
 	$(Q) for i in $(HFILES); do \
 		echo "	INSTALL_DATA $(includedir)/ext2fs/$$i"; \
 		$(INSTALL_DATA) $(srcdir)/$$i $(DESTDIR)$(includedir)/ext2fs/$$i; \
+	done
+	$(Q) for i in $(QUOTA_HFILES); do \
+		echo "	INSTALL_DATA $(includedir)/ext2fs/$$i"; \
+		$(INSTALL_DATA) $(top_srcdir)/lib/support/$$i $(DESTDIR)$(includedir)/ext2fs/$$i; \
 	done
 	$(Q) for i in $(HFILES_IN); do \
 		echo "	INSTALL_DATA $(includedir)/ext2fs/$$i"; \
