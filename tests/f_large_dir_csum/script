@@ -2,6 +2,12 @@ OUT=$test_name.log
 EXP=$test_dir/expect
 E2FSCK=../e2fsck/e2fsck
 
+# skip this test on aarch64 builders because it is extremely slow
+if [ "`uname -m`" = "aarch64" ]; then
+	echo "$test_name: $test_description: skipped (slow on aarch64)"
+	return 0
+fi
+
 NAMELEN=255
 DIRENT_SZ=8
 BLOCKSZ=1024
