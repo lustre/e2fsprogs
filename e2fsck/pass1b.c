@@ -340,6 +340,11 @@ static void pass1b(e2fsck_t ctx, char *block_buf)
 		pb.last_blk = 0;
 		pb.pctx->blk = pb.pctx->blk2 = 0;
 
+		if (e2fsck_fix_bad_inode(ctx, &pctx)) {
+			delete_file(ctx, ino, &pb, block_buf);
+			continue;
+		}
+
 		if (ext2fs_inode_has_valid_blocks2(fs, EXT2_INODE(&inode)) ||
 		    (ino == EXT2_BAD_INO))
 			pctx.errcode = ext2fs_block_iterate3(fs, ino,
@@ -575,7 +580,7 @@ static void pass1d(e2fsck_t ctx, char *block_buf)
 		pctx.dir = p->dir;
 		pctx.blkcount = p->num_dupblocks;
 		pctx.num = meta_data ? shared_len+1 : shared_len;
-		fix_problem(ctx, PR_1D_DUP_FILE, &pctx);
+		fix_problem_bad(ctx, PR_1D_DUP_FILE, &pctx, pctx.blkcount / 2);
 		pctx.blkcount = 0;
 		pctx.num = 0;
 
@@ -593,14 +598,14 @@ static void pass1d(e2fsck_t ctx, char *block_buf)
 			pctx.inode = EXT2_INODE(&t->inode);
 			pctx.ino = shared[i];
 			pctx.dir = t->dir;
-			fix_problem(ctx, PR_1D_DUP_FILE_LIST, &pctx);
+			fix_problem_bad(ctx, PR_1D_DUP_FILE_LIST, &pctx, 0);
 		}
 		/*
 		 * Even if the file shares blocks with itself, we still need to
 		 * clone the blocks.
 		 */
 		if (file_ok && (meta_data ? shared_len+1 : shared_len) != 0) {
-			fix_problem(ctx, PR_1D_DUP_BLOCKS_DEALT, &pctx);
+			fix_problem_bad(ctx, PR_1D_DUP_BLOCKS_DEALT, &pctx, 0);
 			continue;
 		}
 		if (ctx->shared != E2F_SHARED_DELETE &&
@@ -720,8 +725,6 @@ static void delete_file(e2fsck_t ctx, ext2_ino_t ino,
 						     delete_file_block, &pb);
 	if (pctx.errcode)
 		fix_problem(ctx, PR_1B_BLOCK_ITERATE, &pctx);
-	if (ctx->inode_badness)
-		e2fsck_mark_inode_bad(ctx, ino, 0);
 	if (ctx->inode_reg_map)
 		ext2fs_unmark_inode_bitmap2(ctx->inode_reg_map, ino);
 	ext2fs_unmark_inode_bitmap2(ctx->inode_dir_map, ino);

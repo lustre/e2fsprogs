@@ -791,16 +791,20 @@ static void parse_extended_opts(e2fsck_t ctx, const char *opts)
 			}
 		/* -E inode_badness_threshold=<value> */
 		} else if (strcmp(token, "inode_badness_threshold") == 0) {
+			unsigned int val;
+
 			if (!arg) {
 				extended_usage++;
 				continue;
 			}
-			ctx->inode_badness_threshold = strtoul(arg, &p, 0);
-			if (*p != '\0' || ctx->inode_badness_threshold > 200) {
-				fprintf(stderr, _("Invalid badness value.\n"));
+			val = strtoul(arg, &p, 0);
+			if (*p != '\0' || (val < 3 && val != 0) || val > 200) {
+				fprintf(stderr, _("Invalid badness '%s'\n"),
+					arg);
 				extended_usage++;
 				continue;
 			}
+			ctx->inode_badness_threshold = val;
 		} else if (strcmp(token, "journal_only") == 0) {
 			if (arg) {
 				extended_usage++;

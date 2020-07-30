@@ -464,7 +464,7 @@ unlink:
 		pctx.errcode = retval;
 		fix_problem(ctx, PR_3_ERR_FIND_LPF, &pctx);
 	}
-	if (!fix_problem(ctx, PR_3_NO_LF_DIR, 0))
+	if (!fix_problem(ctx, PR_3_NO_LF_DIR, &pctx))
 		return 0;
 
 	/*
@@ -725,7 +725,7 @@ static int fix_dotdot_proc(struct ext2_dir_entry *dirent,
 	}
 	dirent->inode = fp->parent;
 
-	dirdata  = dirent->name_len & (~EXT2_FT_MASK << 8);
+	dirdata  = dirent->name_len & ((__u16)~EXT2_FT_MASK << 8);
 
 	if (ext2fs_has_feature_filetype(fp->ctx->fs->super))
 		ext2fs_dirent_set_file_type(dirent, EXT2_FT_DIR);

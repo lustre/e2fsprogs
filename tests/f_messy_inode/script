@@ -1,4 +1,4 @@
-FSCK_OPT="-fy -d"
+FSCK_OPT="-fy"
 OUT1=$test_name.1.log
 AFTER_CMD="sed -i -e 's/:[0-9]\{4\}:/::/' $OUT1"
 

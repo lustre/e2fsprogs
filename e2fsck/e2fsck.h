@@ -238,11 +238,9 @@ enum clone_opt {
 #define EXT4_XTIME_ANCIENT(ctx, sb, xtime, margin)	\
 	((sb)->s_mkfs_time > (margin) && (xtime) < (sb)->s_mkfs_time - (margin))
 
-#define BADNESS_NORMAL		1
-#define BADNESS_HIGH		2
-#define BADNESS_THRESHOLD	8
-#define BADNESS_BAD_MODE	100
-#define BADNESS_LARGE_FILE	2199023255552ULL
+#define BADNESS_THRESHOLD	12
+#define BADNESS_BAD_MODE	0x8000
+#define BADNESS_MAX		0x7fff
 
 /*
  * Define the extended attribute refcount structure
@@ -353,7 +351,7 @@ struct e2fsck_struct {
 	/* E2fsck internal flags */
 	int			flags;
 
-	int			inode_badness_threshold;
+	unsigned int		inode_badness_threshold;
 
 	/*
 	 * How we display the progress update (for unix)
@@ -671,11 +669,14 @@ extern int e2fsck_pass1_check_symlink(e2fsck_t ctx, ext2_ino_t ino,
 extern void e2fsck_clear_inode(e2fsck_t ctx, ext2_ino_t ino,
 			       struct ext2_inode *inode, int restart_flag,
 			       const char *source);
-#define e2fsck_mark_inode_bad(ctx, ino, count) \
-		e2fsck_mark_inode_bad_loc(ctx, ino, count, __func__, __LINE__)
-extern void e2fsck_mark_inode_bad_loc(e2fsck_t ctx, ino_t ino, int count,
-				      const char *func, const int line);
-extern int is_inode_bad(e2fsck_t ctx, ino_t ino);
+#define e2fsck_mark_inode_bad(ctx, pctx, code) \
+	e2fsck_mark_inode_bad_loc(ctx, pctx, code, 1, __func__, __LINE__)
+#define e2fsck_mark_inode_badder(ctx, pctx, code) \
+	e2fsck_mark_inode_bad_loc(ctx, pctx, code, 2, __func__, __LINE__)
+extern void e2fsck_mark_inode_bad_loc(e2fsck_t ctx,
+				struct problem_context *pctx, __u32 code,
+				int count, const char *func, const int line);
+extern int e2fsck_fix_bad_inode(e2fsck_t ctx, struct problem_context *pctx);
 extern void e2fsck_intercept_block_allocations(e2fsck_t ctx);
 
 /* pass2.c */
