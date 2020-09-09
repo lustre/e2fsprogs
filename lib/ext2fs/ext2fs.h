@@ -281,10 +281,11 @@ struct struct_ext2_filsys {
 	__u16				default_bitmap_type;
 	__u16				pad;
 	__u32				flags2;
+	__u32				fs_num_threads;
 	/*
 	 * Reserved for future expansion
 	 */
-	__u32				reserved[4];
+	__u32				reserved[3];
 
 	/*
 	 * Reserved for the use of the calling application.
