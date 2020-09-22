@@ -2214,6 +2214,7 @@ static errcode_t e2fsck_pass1_copy_fs(ext2_filsys dest, e2fsck_t src_context,
 	memcpy(dest, src, sizeof(struct struct_ext2_filsys));
 	dest->inode_map = NULL;
 	dest->block_map = NULL;
+	dest->badblocks = NULL;
 	if (dest->dblist)
 		dest->dblist->fs = dest;
 	if (src->block_map) {
@@ -2230,7 +2231,8 @@ static errcode_t e2fsck_pass1_copy_fs(ext2_filsys dest, e2fsck_t src_context,
 	}
 
 	if (src->badblocks) {
-		retval = ext2fs_badblocks_copy(src->badblocks, &dest->badblocks);
+		retval = ext2fs_badblocks_copy(src->badblocks,
+					       &dest->badblocks);
 		if (retval)
 			return retval;
 	}
@@ -2275,11 +2277,13 @@ static int e2fsck_pass1_merge_fs(ext2_filsys dest, ext2_filsys src)
 	io_channel dest_image_io;
 	ext2fs_inode_bitmap inode_map;
 	ext2fs_block_bitmap block_map;
+	ext2_badblocks_list badblocks;
 
 	dest_io = dest->io;
 	dest_image_io = dest->image_io;
 	inode_map = dest->inode_map;
 	block_map = dest->block_map;
+	badblocks = dest->badblocks;
 
 	memcpy(dest, src, sizeof(struct struct_ext2_filsys));
 	dest->io = dest_io;
@@ -2287,6 +2291,7 @@ static int e2fsck_pass1_merge_fs(ext2_filsys dest, ext2_filsys src)
 	dest->icache = icache;
 	dest->inode_map = inode_map;
 	dest->block_map = block_map;
+	dest->badblocks = badblocks;
 	if (dest->dblist)
 		dest->dblist->fs = dest;
 
@@ -2306,10 +2311,12 @@ static int e2fsck_pass1_merge_fs(ext2_filsys dest, ext2_filsys src)
 		goto out;
 
 	if (src->badblocks) {
-		retval = ext2fs_badblocks_copy(src->badblocks, &dest->badblocks);
-
-		ext2fs_badblocks_list_free(src->badblocks);
-		src->badblocks = NULL;
+		if (dest->badblocks == NULL)
+			retval = ext2fs_badblocks_copy(src->badblocks,
+						       &dest->badblocks);
+		else
+			retval = ext2fs_badblocks_merge(src->badblocks,
+							dest->badblocks);
 	}
 out:
 	io_channel_close(src->io);
@@ -2317,6 +2324,8 @@ out:
 		ext2fs_free_generic_bmap(src->inode_map);
 	if (src->block_map)
 		ext2fs_free_generic_bmap(src->block_map);
+	if (src->badblocks)
+		ext2fs_badblocks_list_free(src->badblocks);
 	return retval;
 }
 
