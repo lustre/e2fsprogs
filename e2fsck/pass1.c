@@ -1314,7 +1314,7 @@ static void e2fsck_pass1_set_thread_num(e2fsck_t ctx)
 {
 	unsigned flexbg_size = 1;
 	ext2_filsys fs = ctx->fs;
-	int num_threads = ctx->fs_num_threads;
+	int num_threads = ctx->pfs_num_threads;
 	int max_threads;
 
 	if (num_threads < 1) {
@@ -1334,6 +1334,8 @@ static void e2fsck_pass1_set_thread_num(e2fsck_t ctx)
 	max_threads = fs->group_desc_count / flexbg_size;
 	if (max_threads == 0)
 		max_threads = 1;
+	if (max_threads > E2FSCK_MAX_THREADS)
+		max_threads = E2FSCK_MAX_THREADS;
 
 	if (num_threads > max_threads) {
 		fprintf(stderr, "Use max possible thread num: %d instead\n",
@@ -1341,7 +1343,7 @@ static void e2fsck_pass1_set_thread_num(e2fsck_t ctx)
 		num_threads = max_threads;
 	}
 out:
-	ctx->fs_num_threads = num_threads;
+	ctx->pfs_num_threads = num_threads;
 	ctx->fs->fs_num_threads = num_threads;
 }
 #endif
@@ -1369,7 +1371,7 @@ static errcode_t e2fsck_pass1_prepare(e2fsck_t ctx)
 
 #ifdef HAVE_PTHREAD
 	/* don't use more than 1/10 of memory for threads checking */
-	readahead_kb = get_memory_size() / (10 * ctx->fs_num_threads);
+	readahead_kb = get_memory_size() / (10 * ctx->pfs_num_threads);
 	/* maybe better disable RA if this is too small? */
 	if (ctx->readahead_kb > readahead_kb)
 		ctx->readahead_kb = readahead_kb;
@@ -1427,7 +1429,7 @@ static errcode_t e2fsck_pass1_prepare(e2fsck_t ctx)
 #ifdef	HAVE_PTHREAD
 	pthread_rwlock_init(&ctx->fs_fix_rwlock, NULL);
 	pthread_rwlock_init(&ctx->fs_block_map_rwlock, NULL);
-	if (ctx->fs_num_threads > 1)
+	if (ctx->pfs_num_threads > 1)
 		ctx->fs_need_locking = 1;
 #endif
 
@@ -1709,7 +1711,7 @@ void e2fsck_pass1_run(e2fsck_t ctx)
 	if (ctx->global_ctx) {
 		if (ctx->options & E2F_OPT_DEBUG &&
 		    ctx->options & E2F_OPT_MULTITHREAD)
-			fprintf(stderr, "thread %d jumping to group %d\n",
+			fprintf(stderr, "thread %d jumping to group %u\n",
 					ctx->thread_info.et_thread_index,
 					ctx->thread_info.et_group_start);
 		pctx.errcode = ext2fs_inode_scan_goto_blockgroup(scan,
@@ -3281,11 +3283,11 @@ static int e2fsck_pass1_thread_join(e2fsck_t global_ctx, e2fsck_t thread_ctx)
 static int e2fsck_pass1_threads_join(struct e2fsck_thread_info *infos,
 				     e2fsck_t global_ctx)
 {
-	errcode_t			 rc;
-	errcode_t			 ret = 0;
-	int				 i;
-	struct e2fsck_thread_info	*pinfo;
-	int				 num_threads = global_ctx->fs_num_threads;
+	errcode_t rc;
+	errcode_t ret = 0;
+	struct e2fsck_thread_info *pinfo;
+	int num_threads = global_ctx->pfs_num_threads;
+	int i;
 
 	/* merge invalid bitmaps will recalculate it */
 	global_ctx->invalid_bitmaps = 0;
@@ -3351,7 +3353,7 @@ static void *e2fsck_pass1_thread(void *arg)
 out:
 	if (thread_ctx->options & E2F_OPT_MULTITHREAD)
 		log_out(thread_ctx,
-			_("Scanned group range [%lu, %lu), inodes %lu\n"),
+			_("Scanned group range [%u, %u), inodes %u\n"),
 			thread_ctx->thread_info.et_group_start,
 			thread_ctx->thread_info.et_group_end,
 			thread_ctx->thread_info.et_inode_number);
@@ -3406,7 +3408,7 @@ static int e2fsck_pass1_threads_start(struct e2fsck_thread_info **pinfo,
 	int				 i;
 	e2fsck_t			 thread_ctx;
 	dgrp_t				 average_group;
-	int				 num_threads = global_ctx->fs_num_threads;
+	int num_threads = global_ctx->pfs_num_threads;
 #ifdef DEBUG_THREADS
 	struct e2fsck_thread_debug	 thread_debug =
 		{PTHREAD_MUTEX_INITIALIZER, PTHREAD_COND_INITIALIZER, 0};
@@ -3510,8 +3512,7 @@ void e2fsck_pass1(e2fsck_t ctx)
 	if (retval)
 		return;
 #ifdef HAVE_PTHREAD
-	if (ctx->fs_num_threads > 1 ||
-	    ctx->options & E2F_OPT_MULTITHREAD) {
+	if (ctx->pfs_num_threads > 1 || ctx->options & E2F_OPT_MULTITHREAD) {
 		need_single = 0;
 		e2fsck_pass1_multithread(ctx);
 	}
