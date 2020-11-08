@@ -1706,6 +1706,7 @@ void e2fsck_pass1_run(e2fsck_t ctx)
 	int		inode_exp = 0;
 	struct process_inode_block *inodes_to_process;
 	int		process_inode_count, check_mmp;
+	e2fsck_t	global_ctx = ctx->global_ctx ? ctx->global_ctx : ctx;
 
 	init_resource_track(&rtrack, ctx->fs->io);
 	clear_problem_context(&pctx);
@@ -1857,14 +1858,11 @@ void e2fsck_pass1_run(e2fsck_t ctx)
 		check_mmp = 0;
 		e2fsck_pass1_check_lock(ctx);
 #ifdef	CONFIG_PFSCK
-		if (!ctx->mmp_update_thread) {
+		if (!global_ctx->mmp_update_thread) {
 			e2fsck_pass1_block_map_w_lock(ctx);
-			if (!ctx->mmp_update_thread) {
-				if (ctx->global_ctx)
-					ctx->mmp_update_thread =
-						ctx->thread_info.et_thread_index + 1;
-				else
-					ctx->mmp_update_thread = 1;
+			if (!global_ctx->mmp_update_thread) {
+				global_ctx->mmp_update_thread =
+					ctx->thread_info.et_thread_index + 1;
 				check_mmp = 1;
 			}
 			e2fsck_pass1_block_map_w_unlock(ctx);
@@ -1872,8 +1870,8 @@ void e2fsck_pass1_run(e2fsck_t ctx)
 
 		/* only one active thread could update mmp block. */
 		e2fsck_pass1_block_map_r_lock(ctx);
-		if (!ctx->global_ctx || ctx->mmp_update_thread ==
-			(ctx->thread_info.et_thread_index + 1))
+		if (global_ctx->mmp_update_thread ==
+		    ctx->thread_info.et_thread_index + 1)
 			check_mmp = 1;
 		e2fsck_pass1_block_map_r_unlock(ctx);
 #else
@@ -2632,8 +2630,8 @@ endit:
 #ifdef	CONFIG_PFSCK
 	/* reset update_thread after this thread exit */
 	e2fsck_pass1_block_map_w_lock(ctx);
-	if (ctx->mmp_update_thread)
-		ctx->mmp_update_thread = 0;
+	if (check_mmp)
+		global_ctx->mmp_update_thread = 0;
 	e2fsck_pass1_block_map_w_unlock(ctx);
 #endif
 }
