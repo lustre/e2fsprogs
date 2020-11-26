@@ -19,7 +19,8 @@ struct fiemap_extent {
 	__u64 fe_length;   /* length in bytes for this extent */
 	__u64 fe_reserved64[2];
 	__u32 fe_flags;    /* FIEMAP_EXTENT_* flags for this extent */
-	__u32 fe_device;   /* device number (fs-specific if FIEMAP_EXTENT_NET)*/
+	__u32 fe_device;   /* device number (fs-specific if FIEMAP_EXTENT_NET)
+			    * only use the low 16 bits */
 	__u32 fe_reserved[2];
 };
 
@@ -76,6 +77,8 @@ struct fiemap {
 #define FIEMAP_EXTENT_SHARED		0x00002000 /* Space shared with other
 						    * files. */
 
+#define FIEMAP_EXTENT_DATA_MIRROR	0x40000000 /* indicate will start to
+						      map a new mirror */
 /* Network filesystem flags - use a high bit, don't conflict with upstream */
 #define FIEMAP_EXTENT_NET		0x80000000 /* Data stored remotely. */
 

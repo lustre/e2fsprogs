@@ -164,7 +164,7 @@ static void print_extent_info(struct fiemap_extent *fm_extent, int cur_ex,
 	}
 
 	if (device_offset)
-		sprintf(flags, "%04x: ", fm_extent->fe_device);
+		sprintf(flags, "%04x: ", fm_extent->fe_device & 0xffff);
 	else if (expected)
 		sprintf(flags, ext_fmt == hex_fmt ? "%*llx:" : "%*llu: ",
 			physical_width, expected >> blk_shift);
@@ -182,6 +182,7 @@ static void print_extent_info(struct fiemap_extent *fm_extent, int cur_ex,
 	print_flag(&fe_flags, FIEMAP_EXTENT_MERGED, flags, "merged,");
 	print_flag(&fe_flags, FIEMAP_EXTENT_SHARED, flags, "shared,");
 	print_flag(&fe_flags, FIEMAP_EXTENT_NET, flags, "net,");
+	print_flag(&fe_flags, FIEMAP_EXTENT_DATA_MIRROR, flags,"");
 
 	/* print any unknown flags as hex values */
 	for (mask = 1; fe_flags != 0 && mask != 0; mask <<= 1) {
@@ -223,7 +224,7 @@ static int filefrag_fiemap(int fd, int blk_shift, int *num_extents,
 	unsigned int i;
 	int fiemap_header_printed = 0;
 	int tot_extents = 0, n = 0;
-	int previous_device = 0;
+	int previous_device = -1;
 	int last = 0;
 	int rc;
 
@@ -274,16 +275,14 @@ retry_wo_device_order:
 		}
 
 		for (i = 0; i < fiemap->fm_mapped_extents; i++) {
-			if (previous_device != fm_ext[i].fe_device)
-				previous_device = fm_ext[i].fe_device;
-
 			expected_dense = fm_last.fe_physical +
 					 fm_last.fe_length;
 			expected = fm_last.fe_physical +
 				   fm_ext[i].fe_logical - fm_last.fe_logical;
-			if (fm_ext[i].fe_logical != 0 &&
-			    fm_ext[i].fe_physical != expected &&
-			    fm_ext[i].fe_physical != expected_dense) {
+			if ((fm_ext[i].fe_logical != 0 &&
+			     fm_ext[i].fe_physical != expected &&
+			     fm_ext[i].fe_physical != expected_dense) ||
+			    ((fm_ext[i].fe_device & 0xffff) != previous_device)) {
 				tot_extents++;
 			} else {
 				expected = 0;
@@ -297,6 +296,9 @@ retry_wo_device_order:
 				last = 1;
 			fm_last = fm_ext[i];
 			n++;
+			if (previous_device != (fm_ext[i].fe_device & 0xffff))
+				previous_device = fm_ext[i].fe_device & 0xffff;
+
 		}
 
 		/* For DEVICE_ORDER mappings, if EXTENT_LAST not yet found then
@@ -307,8 +309,12 @@ retry_wo_device_order:
 		if (flags & FIEMAP_FLAG_DEVICE_ORDER) {
 			fm_ext[0].fe_logical =	fm_ext[i - 1].fe_logical +
 						fm_ext[i - 1].fe_length;
-			fm_ext[0].fe_device =	fm_ext[i - 1].fe_device;
-			fiemap->fm_start =	0;
+			fm_ext[0].fe_device &= 0xffff0000;
+			fm_ext[0].fe_device |= fm_ext[i - 1].fe_device & 0xffff;
+			if (fm_ext[i - 1].fe_flags & FIEMAP_EXTENT_DATA_MIRROR) {
+				fiemap->fm_start = 0;
+				fm_ext[0].fe_logical = 0;
+			}
 		} else {
 			fiemap->fm_start =	fm_ext[i - 1].fe_logical +
 						fm_ext[i - 1].fe_length;
@@ -336,7 +342,8 @@ static int filefrag_fibmap(int fd, int blk_shift, int *num_extents,
 	memset(&fm_ext, 0, sizeof(fm_ext));
 	memset(&fm_last, 0, sizeof(fm_last));
 	if (force_extent) {
-		fm_ext.fe_device = st->st_dev;
+		fm_ext.fe_device &= 0xffff0000;
+		fm_ext.fe_device |= st->st_dev;
 		fm_ext.fe_flags = FIEMAP_EXTENT_MERGED;
 	}
 
