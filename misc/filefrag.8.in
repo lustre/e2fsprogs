@@ -8,7 +8,7 @@ filefrag \- report on file fragmentation
 .BI \-b blocksize
 ]
 [
-.B \-BeklsvxX
+.B \-BeklsvxXV
 ]
 [
 .I files...
@@ -60,6 +60,10 @@ Display mapping of extended attributes.
 .TP
 .B \-X
 Display extent block numbers in hexadecimal format.
+.TP
+.B \-V
+Print version number of program and library.  If given twice, also
+print the FIEMAP flags that are understood by the current version.
 .SH AUTHOR
 .B filefrag
 was written by Theodore Ts'o <tytso@mit.edu>.

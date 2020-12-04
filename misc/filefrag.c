@@ -51,6 +51,7 @@ extern int optind;
 #include <ext2fs/ext2fs.h>
 #include <ext2fs/ext2_types.h>
 #include <ext2fs/fiemap.h>
+#include "../version.h"
 
 int verbose = 0;
 unsigned int blocksize;	/* Use specified blocksize (default 1kB) */
@@ -132,11 +133,43 @@ static void print_extent_header(void)
 
 static void print_flag(__u32 *flags, __u32 mask, char *buf, const char *name)
 {
+	char hex[sizeof(mask) * 2 + 4]; /* 2 chars/byte + 0x, + NUL */
+
 	if ((*flags & mask) == 0)
 		return;
 
+	if (name == NULL) {
+		sprintf(hex, "%#04x,", mask);
+		name = hex;
+	}
 	strcat(buf, name);
 	*flags &= ~mask;
+}
+
+static void print_flags(__u32 fe_flags, char *flags, int print_unknown)
+{
+	__u32 mask;
+
+	print_flag(&fe_flags, FIEMAP_EXTENT_LAST, flags, "last,");
+	print_flag(&fe_flags, FIEMAP_EXTENT_UNKNOWN, flags, "unknown_loc,");
+	print_flag(&fe_flags, FIEMAP_EXTENT_DELALLOC, flags, "delalloc,");
+	print_flag(&fe_flags, FIEMAP_EXTENT_ENCODED, flags, "encoded,");
+	print_flag(&fe_flags, FIEMAP_EXTENT_DATA_ENCRYPTED, flags,"encrypted,");
+	print_flag(&fe_flags, FIEMAP_EXTENT_NOT_ALIGNED, flags, "not_aligned,");
+	print_flag(&fe_flags, FIEMAP_EXTENT_DATA_INLINE, flags, "inline,");
+	print_flag(&fe_flags, FIEMAP_EXTENT_DATA_TAIL, flags, "tail_packed,");
+	print_flag(&fe_flags, FIEMAP_EXTENT_UNWRITTEN, flags, "unwritten,");
+	print_flag(&fe_flags, FIEMAP_EXTENT_MERGED, flags, "merged,");
+	print_flag(&fe_flags, FIEMAP_EXTENT_SHARED, flags, "shared,");
+	print_flag(&fe_flags, FIEMAP_EXTENT_NET, flags, "net,");
+	print_flag(&fe_flags, FIEMAP_EXTENT_DATA_MIRROR, flags,"next_mirror");
+
+	if (!print_unknown)
+		return;
+
+	/* print any unknown flags as hex values */
+	for (mask = 1; fe_flags != 0 && mask != 0; mask <<= 1)
+		print_flag(&fe_flags, mask, flags, NULL);
 }
 
 static void print_extent_info(struct fiemap_extent *fm_extent, int cur_ex,
@@ -147,7 +180,6 @@ static void print_extent_info(struct fiemap_extent *fm_extent, int cur_ex,
 	unsigned long long logical_blk;
 	unsigned long long ext_len;
 	unsigned long long ext_blks;
-	__u32 fe_flags, mask;
 	char flags[256] = "";
 
 	/* For inline data all offsets should be in bytes, not blocks */
@@ -169,30 +201,7 @@ static void print_extent_info(struct fiemap_extent *fm_extent, int cur_ex,
 		sprintf(flags, ext_fmt == hex_fmt ? "%*llx:" : "%*llu: ",
 			physical_width, expected >> blk_shift);
 
-	fe_flags = fm_extent->fe_flags;
-	print_flag(&fe_flags, FIEMAP_EXTENT_LAST, flags, "last,");
-	print_flag(&fe_flags, FIEMAP_EXTENT_UNKNOWN, flags, "unknown_loc,");
-	print_flag(&fe_flags, FIEMAP_EXTENT_DELALLOC, flags, "delalloc,");
-	print_flag(&fe_flags, FIEMAP_EXTENT_ENCODED, flags, "encoded,");
-	print_flag(&fe_flags, FIEMAP_EXTENT_DATA_ENCRYPTED, flags,"encrypted,");
-	print_flag(&fe_flags, FIEMAP_EXTENT_NOT_ALIGNED, flags, "not_aligned,");
-	print_flag(&fe_flags, FIEMAP_EXTENT_DATA_INLINE, flags, "inline,");
-	print_flag(&fe_flags, FIEMAP_EXTENT_DATA_TAIL, flags, "tail_packed,");
-	print_flag(&fe_flags, FIEMAP_EXTENT_UNWRITTEN, flags, "unwritten,");
-	print_flag(&fe_flags, FIEMAP_EXTENT_MERGED, flags, "merged,");
-	print_flag(&fe_flags, FIEMAP_EXTENT_SHARED, flags, "shared,");
-	print_flag(&fe_flags, FIEMAP_EXTENT_NET, flags, "net,");
-	print_flag(&fe_flags, FIEMAP_EXTENT_DATA_MIRROR, flags,"");
-
-	/* print any unknown flags as hex values */
-	for (mask = 1; fe_flags != 0 && mask != 0; mask <<= 1) {
-		char hex[sizeof(mask) * 2 + 4]; /* 2 chars/byte + 0x, + NUL */
-
-		if ((fe_flags & mask) == 0)
-			continue;
-		sprintf(hex, "%#04x,", mask);
-		print_flag(&fe_flags, mask, flags, hex);
-	}
+	print_flags(fm_extent->fe_flags, flags, 1);
 
 	if (fm_extent->fe_logical + fm_extent->fe_length >=
 	    (unsigned long long) st->st_size)
@@ -571,8 +580,9 @@ int main(int argc, char**argv)
 {
 	char **cpp;
 	int rc = 0, c;
+	int version = 0;
 
-	while ((c = getopt(argc, argv, "Bb::eklsvxX")) != EOF) {
+	while ((c = getopt(argc, argv, "Bb::eklsvxXV")) != EOF) {
 		switch (c) {
 		case 'B':
 			force_bmap++;
@@ -644,6 +654,9 @@ int main(int argc, char**argv)
 		case 'v':
 			verbose++;
 			break;
+		case 'V':
+			version++;
+			break;
 		case 'x':
 			xattr_map++;
 			break;
@@ -654,6 +667,17 @@ int main(int argc, char**argv)
 			usage(argv[0]);
 			break;
 		}
+	}
+	if (version) {
+		/* Print version number and exit */
+		printf("filefrag %s (%s)\n", E2FSPROGS_VERSION,
+			E2FSPROGS_DATE);
+		if (version + verbose > 1) {
+			char flags[256] = "";
+			print_flags(0xffffffff, flags, 0);
+			printf("supported: %s\n", flags);
+		}
+		exit(0);
 	}
 
 	if (optind == argc)
