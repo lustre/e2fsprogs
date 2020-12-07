@@ -162,7 +162,6 @@ static void print_flags(__u32 fe_flags, char *flags, int print_unknown)
 	print_flag(&fe_flags, FIEMAP_EXTENT_MERGED, flags, "merged,");
 	print_flag(&fe_flags, FIEMAP_EXTENT_SHARED, flags, "shared,");
 	print_flag(&fe_flags, FIEMAP_EXTENT_NET, flags, "net,");
-	print_flag(&fe_flags, FIEMAP_EXTENT_DATA_MIRROR, flags,"next_mirror");
 
 	if (!print_unknown)
 		return;
@@ -320,10 +319,6 @@ retry_wo_device_order:
 						fm_ext[i - 1].fe_length;
 			fm_ext[0].fe_device &= 0xffff0000;
 			fm_ext[0].fe_device |= fm_ext[i - 1].fe_device & 0xffff;
-			if (fm_ext[i - 1].fe_flags & FIEMAP_EXTENT_DATA_MIRROR) {
-				fiemap->fm_start = 0;
-				fm_ext[0].fe_logical = 0;
-			}
 		} else {
 			fiemap->fm_start =	fm_ext[i - 1].fe_logical +
 						fm_ext[i - 1].fe_length;
@@ -351,8 +346,7 @@ static int filefrag_fibmap(int fd, int blk_shift, int *num_extents,
 	memset(&fm_ext, 0, sizeof(fm_ext));
 	memset(&fm_last, 0, sizeof(fm_last));
 	if (force_extent) {
-		fm_ext.fe_device &= 0xffff0000;
-		fm_ext.fe_device |= st->st_dev;
+		fm_ext.fe_device = st->st_dev;
 		fm_ext.fe_flags = FIEMAP_EXTENT_MERGED;
 	}
 
