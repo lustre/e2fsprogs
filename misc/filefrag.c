@@ -304,9 +304,7 @@ retry_wo_device_order:
 				last = 1;
 			fm_last = fm_ext[i];
 			n++;
-			if (previous_device != (fm_ext[i].fe_device & 0xffff))
-				previous_device = fm_ext[i].fe_device & 0xffff;
-
+			previous_device = fm_ext[i].fe_device & 0xffff;
 		}
 
 		/* For DEVICE_ORDER mappings, if EXTENT_LAST not yet found then
@@ -317,8 +315,8 @@ retry_wo_device_order:
 		if (flags & FIEMAP_FLAG_DEVICE_ORDER) {
 			fm_ext[0].fe_logical =	fm_ext[i - 1].fe_logical +
 						fm_ext[i - 1].fe_length;
-			fm_ext[0].fe_device &= 0xffff0000;
-			fm_ext[0].fe_device |= fm_ext[i - 1].fe_device & 0xffff;
+			fm_ext[0].fe_device =	fm_ext[i - 1].fe_device;
+			fiemap->fm_start =	0;
 		} else {
 			fiemap->fm_start =	fm_ext[i - 1].fe_logical +
 						fm_ext[i - 1].fe_length;
