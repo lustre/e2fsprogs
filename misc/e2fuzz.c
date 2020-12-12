@@ -181,9 +181,8 @@ static int process_fs(const char *fsname)
 	int flags, fd;
 	ext2_filsys fs = NULL;
 	ext2fs_block_bitmap corrupt_map;
-	loff_t hsize, count, off, offset, corrupt_bytes;
+	ext2_loff_t hsize, count, off, offset, corrupt_bytes, i;
 	unsigned char c;
-	loff_t i;
 
 	/* If mounted rw, force dryrun mode */
 	ret = ext2fs_check_if_mounted(fsname, &flags);
