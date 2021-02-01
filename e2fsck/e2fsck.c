@@ -189,6 +189,7 @@ errcode_t e2fsck_reset_context(e2fsck_t ctx)
 	ctx->fs_fragmented = 0;
 	ctx->fs_fragmented_dir = 0;
 	ctx->large_files = 0;
+	ctx->large_dirs = 0;
 	ctx->fs_unexpanded_inodes = 0;
 #ifdef CONFIG_PFSCK
 	ctx->fs_need_locking = 0;

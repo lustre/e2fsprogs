@@ -1176,6 +1176,9 @@ inline_read_fail:
 			root = get_ext2_dx_root_info(fs, buf);
 			dx_db->type = DX_DIRBLOCK_ROOT;
 			dx_db->flags |= DX_FLAG_FIRST | DX_FLAG_LAST;
+
+			/* large_dir was set in pass1 if large dirs were found,
+			 * ext2_dir_htree_levels() should now be correct */
 			if ((root->reserved_zero ||
 			     root->info_length < 8 ||
 			     root->indirect_levels >=
@@ -1798,9 +1801,12 @@ static void deallocate_inode(e2fsck_t ctx, ext2_ino_t ino, char* block_buf)
 	if (inode.i_flags & EXT4_INLINE_DATA_FL)
 		goto clear_inode;
 
-	if (LINUX_S_ISREG(inode.i_mode) &&
-	    ext2fs_needs_large_file_feature(EXT2_I_SIZE(&inode)))
-		ctx->large_files--;
+	if (ext2fs_needs_large_file_feature(EXT2_I_SIZE(&inode))) {
+		if (LINUX_S_ISREG(inode.i_mode))
+		    ctx->large_files--;
+		else if (LINUX_S_ISDIR(inode.i_mode))
+		    ctx->large_dirs--;
+	}
 
 	del_block.ctx = ctx;
 	del_block.num = 0;
@@ -1992,6 +1998,7 @@ int e2fsck_process_bad_inode(e2fsck_t ctx, ext2_ino_t dir,
 		badness += BADNESS_NORMAL;
 	}
 	if (inode.i_size_high && !ext2fs_has_feature_largedir(fs->super) &&
+	    inode.i_blocks < 1ULL << (29 - EXT2_BLOCK_SIZE_BITS(fs->super)) &&
 	    LINUX_S_ISDIR(inode.i_mode)) {
 		if (fix_problem(ctx, PR_2_DIR_SIZE_HIGH_ZERO, &pctx)) {
 			inode.i_size_high = 0;
