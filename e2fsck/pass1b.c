@@ -341,7 +341,10 @@ static void pass1b(e2fsck_t ctx, char *block_buf)
 		pb.pctx->blk = pb.pctx->blk2 = 0;
 
 		if (e2fsck_fix_bad_inode(ctx, &pctx)) {
-			delete_file(ctx, ino, &pb, block_buf);
+			struct dup_inode dp = { .inode = inode };
+
+			/* delete_file only uses dp.inode */
+			delete_file(ctx, ino, &dp, block_buf);
 			continue;
 		}
 
