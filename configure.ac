@@ -1,5 +1,5 @@
 AC_INIT(version.h)
-AC_PREREQ(2.69)
+AC_PREREQ(2.59)
 AC_CONFIG_AUX_DIR(config)
 AC_CONFIG_HEADERS([lib/config.h])
 AH_BOTTOM([#include <dirpaths.h>])
