@@ -592,7 +592,7 @@ static errcode_t read_bitmaps(ext2_filsys fs, int do_inode, int do_block)
 			thread_infos[i].rbt_grp_end = fs->group_desc_count - 1;
 		else
 			thread_infos[i].rbt_grp_end = average_group * (i + 1);
-		retval = manager->open(fs->device_name, IO_FLAG_RW,
+		retval = manager->open(fs->device_name, 0,
 					&thread_infos[i].rbt_io);
 		if (retval)
 			break;
