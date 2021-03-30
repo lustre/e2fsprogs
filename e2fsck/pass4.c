@@ -17,6 +17,7 @@
 #include "config.h"
 #include "e2fsck.h"
 #include "problem.h"
+#include "ext2fs/lfsck.h"
 #include <ext2fs/ext2_ext_attr.h>
 
 /*
@@ -150,6 +151,73 @@ static void check_ea_inode(e2fsck_t ctx, ext2_ino_t i, ext2_ino_t *last_ino,
 	}
 }
 
+static errcode_t check_link_ea(e2fsck_t ctx, ext2_ino_t ino,
+			       ext2_ino_t *last_ino,
+			       struct ext2_inode_large *inode,
+			       __u16 *link_counted)
+{
+	struct ext2_xattr_handle *handle;
+	struct link_ea_header *leh;
+	void *buf;
+	size_t ea_len;
+	errcode_t retval;
+
+	if (*last_ino != ino) {
+		e2fsck_read_inode_full(ctx, ino, EXT2_INODE(inode),
+				       EXT2_INODE_SIZE(ctx->fs->super),
+				       "pass4: get link ea count");
+		*last_ino = ino;
+	}
+
+	retval = ext2fs_xattrs_open(ctx->fs, ino, &handle);
+	if (retval)
+		return retval;
+
+	retval = ext2fs_xattrs_read_inode(handle, inode);
+	if (retval)
+		goto err;
+
+	retval = ext2fs_xattr_get(handle, EXT2_ATTR_INDEX_TRUSTED_PREFIX
+				  LUSTRE_XATTR_MDT_LINK, &buf, &ea_len);
+	if (retval)
+		goto err;
+
+	leh = (struct link_ea_header *)buf;
+	if (leh->leh_magic == ext2fs_swab32(LINK_EA_MAGIC)) {
+		leh->leh_magic = LINK_EA_MAGIC;
+		leh->leh_reccount = ext2fs_swab32(leh->leh_reccount);
+		leh->leh_len = ext2fs_swab64(leh->leh_len);
+	}
+	if (leh->leh_magic != LINK_EA_MAGIC) {
+		retval = EINVAL;
+		goto err_free;
+	}
+	if (leh->leh_reccount == 0 && !leh->leh_overflow_time) {
+		retval = ENODATA;
+		goto err_free;
+	}
+	if (leh->leh_len > ea_len) {
+		retval = EINVAL;
+		goto err_free;
+	}
+
+	/* if linkEA overflowed and does not hold all links, assume *some*
+	 * links exist until LFSCK is next run and resets leh_overflow_time */
+	if (leh->leh_overflow_time) {
+		if (inode->i_links_count > *link_counted)
+			*link_counted = inode->i_links_count;
+		else if (*link_counted == 0)
+			*link_counted = 1111;
+	}
+	if (leh->leh_reccount > *link_counted)
+		*link_counted = leh->leh_reccount;
+err_free:
+	ext2fs_free_mem(&buf);
+err:
+	ext2fs_xattrs_close(&handle);
+	return retval;
+}
+
 void e2fsck_pass4(e2fsck_t ctx)
 {
 	ext2_filsys fs = ctx->fs;
@@ -249,6 +317,7 @@ void e2fsck_pass4(e2fsck_t ctx)
 					    &link_count);
 			ext2fs_icount_fetch(ctx->inode_count, i,
 					    &link_counted);
+			check_link_ea(ctx, i, &last_ino, inode, &link_counted);
 		}
 		isdir = ext2fs_test_inode_bitmap2(ctx->inode_dir_map, i);
 		if (isdir && (link_counted > EXT2_LINK_MAX)) {
@@ -260,6 +329,9 @@ void e2fsck_pass4(e2fsck_t ctx)
 			}
 			link_counted = 1;
 		}
+		if (link_counted != link_count)
+			check_link_ea(ctx, i, &last_ino, inode, &link_counted);
+
 		if (link_counted != link_count) {
 			int fix_nlink = 0;
 
