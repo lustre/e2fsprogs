@@ -86,4 +86,26 @@ struct filter_fid {
 #define PFID_STRIPE_IDX_BITS	16
 #define PFID_STRIPE_COUNT_MASK	((1 << PFID_STRIPE_IDX_BITS) - 1)
 
+#ifndef LINK_EA_MAGIC
+/** Hardlink data is name and parent fid.
+ * Stored in this crazy struct for maximum packing and endian-neutrality */
+struct link_ea_entry {
+	/** lee_reclen is a __u16 stored big-endian, unaligned */
+	unsigned char	lee_reclen[2];	/* record size in bytes */
+	unsigned char	lee_parent_fid[sizeof(struct lu_fid)];
+	char		lee_name[0];	/* filename without trailing NUL */
+}__attribute__((packed));
+
+/** The link ea holds 1 \a link_ea_entry for each hardlink */
+#define LINK_EA_MAGIC 0x11EAF1DFUL
+struct link_ea_header {
+	__u32 leh_magic;		/* LINK_EA_MAGIC */
+	__u32 leh_reccount;		/* number of records in leh_entry[] */
+	__u64 leh_len;			/* total size in bytes */
+	__u32 leh_overflow_time;	/* when link xattr ran out of space */
+	__u32 padding;
+/*	struct link_ea_entry leh_entry; packed array of variable-size entries */
+};
+#endif
+
 #endif /* LFSCK_H */
