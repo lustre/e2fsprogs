@@ -287,7 +287,6 @@ void e2fsck_pass4(e2fsck_t ctx)
 			 * necessary.
 			 */
 			check_ea_inode(ctx, i, &last_ino, inode, &link_counted);
-			check_link_ea(ctx, i, &last_ino, inode, &link_counted);
 		}
 
 		if (link_counted == 0) {
@@ -302,6 +301,7 @@ void e2fsck_pass4(e2fsck_t ctx)
 					    &link_count);
 			ext2fs_icount_fetch(ctx->inode_count, i,
 					    &link_counted);
+			check_link_ea(ctx, i, &last_ino, inode, &link_counted);
 		}
 		isdir = ext2fs_test_inode_bitmap2(ctx->inode_dir_map, i);
 		if (isdir && (link_counted > EXT2_LINK_MAX)) {
