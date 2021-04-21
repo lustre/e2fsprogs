@@ -105,12 +105,27 @@ Extended attributes:
 debugfs: ea_list acl_dir
 Extended attributes:
   system.data (0)
-  system.posix_acl_access (28) = 01 00 00 00 01 00 07 00 04 00 05 00 08 00 05 00 2a 00 00 00 10 00 05 00 20 00 05 00 
-  system.posix_acl_default (28) = 01 00 00 00 01 00 07 00 04 00 05 00 08 00 05 00 04 00 00 00 10 00 05 00 20 00 05 00 
+  system.posix_acl_access:
+    user::rwx
+    group::r-x
+    group:42:r-x
+    mask::r-x
+    other::r-x
+  system.posix_acl_default:
+    user::rwx
+    group::r-x
+    group:4:r-x
+    mask::r-x
+    other::r-x
 debugfs: ea_list acl_dir/file
 Extended attributes:
   system.data (0)
-  system.posix_acl_access (28) = 01 00 00 00 01 00 07 00 04 00 05 00 08 00 05 00 2a 00 00 00 10 00 05 00 20 00 05 00 
+  system.posix_acl_access:
+    user::rwx
+    group::r-x
+    group:42:r-x
+    mask::r-x
+    other::r-x
 Pass 1: Checking inodes, blocks, and sizes
 Pass 2: Checking directory structure
 Pass 3: Checking directory connectivity

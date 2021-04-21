@@ -17,6 +17,7 @@ extern char *optarg;
 #include "support/cstring.h"
 
 #include "debugfs.h"
+#include "ext2fs/ext4_acl.h"
 #include "ext2fs/lfsck.h"
 
 #define PRINT_XATTR_HEX		0x01
@@ -82,6 +83,76 @@ static void print_xattr(FILE *f, char *name, char *value, size_t value_len,
 		print_xattr_string(f, value, value_len, print_flags);
 	}
 	fputc('\n', f);
+}
+
+static int print_acl(FILE *f, void *name, void *value, size_t value_len)
+{
+	const ext4_acl_header *ext_acl = (const ext4_acl_header *)value;
+	const char *cp;
+
+	if (!value ||
+	    (value_len < sizeof(ext4_acl_header)) ||
+	    (ext_acl->a_version != ext2fs_cpu_to_le32(EXT4_ACL_VERSION)))
+		return -EINVAL;
+
+	cp = (const char *)value + sizeof(ext4_acl_header);
+	value_len -= sizeof(ext4_acl_header);
+
+	fprintf(f, "%s:\n", name);
+
+	while (value_len > 0) {
+		const ext4_acl_entry *disk_entry = (const ext4_acl_entry *)cp;
+		posix_acl_xattr_entry entry;
+		entry.e_tag = ext2fs_le16_to_cpu(disk_entry->e_tag);
+		entry.e_perm = ext2fs_le16_to_cpu(disk_entry->e_perm);
+
+		switch(entry.e_tag) {
+			case ACL_USER_OBJ:
+			case ACL_USER:
+				fprintf(f, "    user:");
+				if (entry.e_tag == ACL_USER)
+					fprintf(f, "%u",
+					ext2fs_le32_to_cpu(disk_entry->e_id));
+				break;
+
+			case ACL_GROUP_OBJ:
+			case ACL_GROUP:
+				fprintf(f, "    group:");
+				if (entry.e_tag == ACL_GROUP)
+					fprintf(f, "%u",
+					ext2fs_le32_to_cpu(disk_entry->e_id));
+				break;
+
+			case ACL_MASK:
+				fprintf(f, "    mask:");
+				break;
+
+			case ACL_OTHER:
+				fprintf(f, "    other:");
+				break;
+
+			default:
+				fprintf(stderr,
+					"%s: error: invalid tag %x in ACL\n",
+					debug_prog_name, entry.e_tag);
+				return -EINVAL;
+		}
+		fprintf(f, ":");
+		fprintf(f, (entry.e_perm & ACL_READ) ? "r" : "-");
+		fprintf(f, (entry.e_perm & ACL_WRITE) ? "w" : "-");
+		fprintf(f, (entry.e_perm & ACL_EXECUTE) ? "x" : "-");
+		fprintf(f, "\n");
+
+		if (entry.e_tag == ACL_USER || entry.e_tag == ACL_GROUP) {
+			cp += sizeof(ext4_acl_entry);
+			value_len -= sizeof(ext4_acl_entry);
+		} else {
+			cp += sizeof(ext4_acl_entry_short);
+			value_len -= sizeof(ext4_acl_entry_short);
+		}
+	}
+
+	return 0;
 }
 
 static int print_fidstr(FILE *f, void *name, void *value, size_t value_len)
@@ -220,6 +291,14 @@ struct dump_attr_pretty {
 	const char *dap_name;
 	int (*dap_print)(FILE *f, void *name, void *value, size_t value_len);
 } dumpers[] = {
+	{
+		.dap_name = "system.posix_acl_access",
+		.dap_print = print_acl,
+	},
+	{
+		.dap_name = "system.posix_acl_default",
+		.dap_print = print_acl,
+	},
 	{
 		.dap_name = "trusted.fid",
 		.dap_print = print_fidstr,
