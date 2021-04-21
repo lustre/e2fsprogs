@@ -84,8 +84,7 @@ static void print_xattr(FILE *f, char *name, char *value, size_t value_len,
 	fputc('\n', f);
 }
 
-static void print_fidstr(FILE *f, void *name, void *value,
-			 ext2_ino_t inode_num, size_t value_len)
+static int print_fidstr(FILE *f, void *name, void *value, size_t value_len)
 {
 	struct filter_fid_old *ff = value;
 	int stripe;
@@ -93,16 +92,15 @@ static void print_fidstr(FILE *f, void *name, void *value,
 	/* Since Lustre 2.4 only the parent FID is stored in filter_fid,
 	 * and the self fid is stored in the LMA and is printed below. */
 	if (value_len < sizeof(ff->ff_parent)) {
-		fprintf(stderr, "%s: error: filter_fid for inode %u smaller "
-			"than expected (%lu bytes).\n",
-			debug_prog_name, inode_num, value_len);
-		return;
+		fprintf(stderr, "%s: error: xattr '%s' too small (%zu bytes)\n",
+			debug_prog_name, name, value_len);
+		return -EINVAL;
 	}
 	fid_le_to_cpu(&ff->ff_parent, &ff->ff_parent);
 	stripe = fid_ver(&ff->ff_parent); /* stripe index is stored in f_ver */
 	ff->ff_parent.f_ver = 0;
 
-	fprintf(f, "  fid: ");
+	fprintf(f, "fid: ");
 	/* Old larger filter_fid should only ever be used with seq = 0.
 	 * FID-on-OST should use LMA for FID_SEQ_NORMAL OST objects. */
 	if (value_len == sizeof(*ff))
@@ -125,23 +123,23 @@ static void print_fidstr(FILE *f, void *name, void *value,
 				ext2fs_le64_to_cpu(ff_new->ff_pfl_end));
 	}
 	fprintf(f, "\n");
+
+	return 0;
 }
 
-static void print_lmastr(FILE *f, void *name, void *value,
-			 ext2_ino_t inode_num, size_t value_len)
+static int print_lmastr(FILE *f, void *name, void *value, size_t value_len)
 {
 	struct lustre_mdt_attrs *lma = value;
 	struct lustre_ost_attrs *loa = value;
 
 	if (value_len < offsetof(typeof(*lma), lma_self_fid) +
 			sizeof(lma->lma_self_fid)) {
-		fprintf(stderr, "%s: error: LMA for inode %u smaller than "
-			"expected (%lu bytes).\n",
-			debug_prog_name, inode_num, value_len);
-		return;
+		fprintf(stderr, "%s: error: xattr '%s' too small (%zu bytes)\n",
+			debug_prog_name, name, value_len);
+		return -EINVAL;
 	}
 	fid_le_to_cpu(&lma->lma_self_fid, &lma->lma_self_fid);
-	fprintf(f, "  lma: fid="DFID" compat=%x incompat=%x\n",
+	fprintf(f, "lma: fid="DFID" compat=%x incompat=%x\n",
 		PFID(&lma->lma_self_fid), ext2fs_le32_to_cpu(lma->lma_compat),
 		ext2fs_le32_to_cpu(lma->lma_incompat));
 	if (value_len >= offsetof(typeof(*loa), loa_pfl_end) +
@@ -165,12 +163,86 @@ static void print_lmastr(FILE *f, void *name, void *value,
 				ext2fs_le64_to_cpu(loa->loa_pfl_end));
 		fprintf(f, "\n");
 	}
+
+	return 0;
 }
+
+static int print_linkea(FILE *f, void *name, void *value, size_t value_len)
+{
+	struct link_ea_header *leh = value;
+	struct link_ea_entry *lee;
+	int i;
+
+	if (value_len < sizeof(*leh) ||
+	    value_len < ext2fs_le64_to_cpu(leh->leh_len)) {
+		fprintf(stderr, "%s: error: xattr '%s' too small (%zu bytes)\n",
+			debug_prog_name, name, value_len);
+		return -EINVAL;
+	}
+
+	if (ext2fs_le32_to_cpu(leh->leh_magic) != LINK_EA_MAGIC) {
+		fprintf(stderr, "%s: error: xattr '%s' bad magic '%#x'\n",
+			debug_prog_name, name,
+			ext2fs_le32_to_cpu(leh->leh_magic));
+		return -EINVAL;
+	}
+
+	lee = leh->leh_entry;
+	value_len -= sizeof(*leh);
+
+	for (i = 0; i < ext2fs_le32_to_cpu(leh->leh_reccount) &&
+		    value_len > 2; i++) {
+		int reclen = lee->lee_reclen[0] << 8 | lee->lee_reclen[1];
+		struct lu_fid pfid;
+
+		if (value_len < sizeof(*lee) || value_len < reclen) {
+			fprintf(stderr,
+				"%s: error: xattr '%s' entry %d too small "
+				"(%zu bytes)\n",
+				debug_prog_name, name, i, value_len);
+			return -EINVAL;
+		}
+
+		memcpy(&pfid, &lee->lee_parent_fid, sizeof(pfid));
+		fid_be_to_cpu(&pfid, &pfid);
+		fprintf(f, "%s idx=%u parent="DFID" name='%.*s'\n",
+			i == 0 ? "linkea:" : "         ", i, PFID(&pfid),
+			reclen - (int)sizeof(*lee), lee->lee_name);
+
+		lee = (struct link_ea_entry *)((char *)lee + reclen);
+		value_len -= reclen;
+	}
+
+	return 0;
+}
+
+struct dump_attr_pretty {
+	const char *dap_name;
+	int (*dap_print)(FILE *f, void *name, void *value, size_t value_len);
+} dumpers[] = {
+	{
+		.dap_name = "trusted.fid",
+		.dap_print = print_fidstr,
+	},
+	{
+		.dap_name = "trusted.lma",
+		.dap_print = print_lmastr,
+	},
+	{
+		.dap_name = "trusted.link",
+		.dap_print = print_linkea,
+	},
+	{
+		.dap_name = NULL,
+	}
+};
 
 static int dump_attr(char *name, char *value, size_t value_len,
 		     ext2_ino_t inode_num, void *data)
 {
+	struct dump_attr_pretty *dap;
 	FILE *out = data;
+	int rc = 0;
 
 	fprintf(out, "  ");
 	if (EXT2_HAS_INCOMPAT_FEATURE(current_fs->super,
@@ -178,17 +250,16 @@ static int dump_attr(char *name, char *value, size_t value_len,
 				      inode_num != 0) {
 		fprintf(out, "inode <%u> ", inode_num);
 	}
-	print_xattr(out, name, value, value_len, PRINT_XATTR_STATFMT);
-	if (!strncmp(name, EXT2_ATTR_INDEX_TRUSTED_PREFIX LUSTRE_XATTR_OST_FID,
-		     strlen(name)) ||
-	    !strncmp(name, EXT2_ATTR_INDEX_LUSTRE_PREFIX LUSTRE_XATTR_OST_FID,
-		     strlen(name)))
-		print_fidstr(out, name, value, inode_num, value_len);
-	if (!strncmp(name, EXT2_ATTR_INDEX_TRUSTED_PREFIX LUSTRE_XATTR_MDT_LMA,
-		     strlen(name)) ||
-	    !strncmp(name, EXT2_ATTR_INDEX_LUSTRE_PREFIX LUSTRE_XATTR_MDT_LMA,
-		     strlen(name)))
-		print_lmastr(out, name, value, inode_num, value_len);
+
+	for (dap = dumpers; dap->dap_name != NULL; dap++) {
+		if (strcmp(name, dap->dap_name) == 0) {
+			rc = dap->dap_print(out, name, value, value_len);
+			break;
+		}
+	}
+	if (dap->dap_name == NULL || rc)
+		print_xattr(out, name, value, value_len, PRINT_XATTR_STATFMT);
+
 	return 0;
 }
 

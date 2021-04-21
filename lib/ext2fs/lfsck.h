@@ -104,7 +104,7 @@ struct link_ea_header {
 	__u64 leh_len;			/* total size in bytes */
 	__u32 leh_overflow_time;	/* when link xattr ran out of space */
 	__u32 padding;
-/*	struct link_ea_entry leh_entry; packed array of variable-size entries */
+	struct link_ea_entry leh_entry[0]; /* packed array of variable-size entries */
 };
 #endif
 

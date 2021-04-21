@@ -1,0 +1,12 @@
+Extended attributes:
+  linkea: idx=0 parent=[0x200000007:0x1:0x0] name='file'
+          idx=1 parent=[0x240000404:0x1:0x0] name='file-link-1'
+          idx=2 parent=[0x240000404:0x1:0x0] name='file-link-2'
+          idx=3 parent=[0x240000404:0x1:0x0] name='file-link-3'
+          idx=4 parent=[0x240000404:0x1:0x0] name='file-link-4'
+          idx=5 parent=[0x240000404:0x1:0x0] name='file-link-5'
+          idx=6 parent=[0x240000404:0x1:0x0] name='file-link-6'
+          idx=7 parent=[0x240000404:0x1:0x0] name='file-link-7'
+          idx=8 parent=[0x240000404:0x1:0x0] name='file-link-8'
+          idx=9 parent=[0x240000404:0x1:0x0] name='file-link-9'
+          idx=10 parent=[0x240000404:0x1:0x0] name='file-link-10'
