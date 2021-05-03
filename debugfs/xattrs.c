@@ -180,8 +180,8 @@ static int print_fidstr(FILE *f, void *name, void *value, size_t value_len)
 			ext2fs_le64_to_cpu(ff->ff_seq));
 
 	fprintf(f, "parent="DFID" stripe=%u", PFID(&ff->ff_parent), stripe);
-	if (value_len > sizeof(*ff)) {
-		struct filter_fid *ff_new = value;
+	if (value_len >= sizeof(struct filter_fid_210)) {
+		struct filter_fid_210 *ff_new = value;
 
 		fprintf(f, " stripe_size=%u stripe_count=%u",
 			ext2fs_le32_to_cpu(ff_new->ff_stripe_size),
@@ -193,6 +193,15 @@ static int print_fidstr(FILE *f, void *name, void *value, size_t value_len)
 				ext2fs_le64_to_cpu(ff_new->ff_pfl_start),
 				ext2fs_le64_to_cpu(ff_new->ff_pfl_end));
 	}
+
+	if (value_len >= sizeof(struct filter_fid)) {
+		struct filter_fid *ff_new = value;
+
+		fprintf(f, " layout_version=%u range=%u",
+			ext2fs_le32_to_cpu(ff_new->ff_layout_version),
+			ext2fs_le32_to_cpu(ff_new->ff_range));
+	}
+
 	fprintf(f, "\n");
 
 	return 0;

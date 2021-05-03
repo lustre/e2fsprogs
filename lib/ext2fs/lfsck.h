@@ -71,7 +71,7 @@ struct filter_fid_old {
 	__u64		ff_seq;
 };
 
-struct filter_fid {
+struct filter_fid_210 {
 	struct lu_fid	ff_parent;
 	__u32		ff_stripe_size;
 	__u32		ff_stripe_count;
@@ -79,6 +79,17 @@ struct filter_fid {
 	__u64		ff_pfl_end;
 	__u32		ff_pfl_id;
 };
+
+struct filter_fid {
+	struct lu_fid	ff_parent;
+	__u32		ff_stripe_size;
+	__u32		ff_stripe_count;
+	__u64		ff_pfl_start;
+	__u64		ff_pfl_end;
+	__u32		ff_pfl_id;
+	__u32		ff_layout_version;
+	__u32		ff_range;
+} __attribute__((packed));
 
 #define LMA_OLD_SIZE 64
 #endif /* !LMA_OLD_SIZE */
