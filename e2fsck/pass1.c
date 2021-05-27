@@ -2990,6 +2990,7 @@ static errcode_t e2fsck_pass1_thread_prepare(e2fsck_t global_ctx, e2fsck_t *thre
 	thread_context->block_dup_map = NULL;
 	thread_context->casefolded_dirs = NULL;
 	thread_context->expand_eisize_map = NULL;
+	thread_context->inode_badness = NULL;
 
 	retval = e2fsck_allocate_block_bitmap(global_ctx->fs,
 				_("in-use block map"), EXT2FS_BMAP64_RBTREE,
