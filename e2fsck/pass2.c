@@ -482,8 +482,8 @@ static int check_dot(e2fsck_t ctx,
 	int		status = 0;
 	int		created = 0;
 	problem_t	problem = 0;
-	int		ftype = EXT2_FT_DIR;
 	int		dir_data_error;
+	int		ftype = EXT2_FT_DIR;
 
 	if (!dirent->inode)
 		problem = PR_2_MISSING_DOT;
@@ -500,7 +500,7 @@ static int check_dot(e2fsck_t ctx,
 		if (!ext2fs_has_feature_filetype(ctx->fs->super))
 			ftype = EXT2_FT_UNKNOWN;
 		if (fix_problem(ctx, problem, pctx)) {
-			if (rec_len < 12 && dir_data_error)
+			if (rec_len < 12)
 				rec_len = dirent->rec_len = 12;
 			dirent->inode = ino;
 			ext2fs_dirent_set_name_len(dirent, 1);
@@ -536,12 +536,6 @@ static int check_dot(e2fsck_t ctx,
 					ext2fs_dirent_set_name_len(nextdir, 0);
 					ext2fs_dirent_set_file_type(nextdir,
 								    ftype);
-#ifdef WORDS_BIGENDIAN
-				} else {
-					(void) ext2fs_dirent_swab_in2(ctx->fs,
-						(char *) nextdir,
-						ctx->fs->blocksize - 12, 0);
-#endif
 				}
 				status = 1;
 			}
@@ -561,8 +555,8 @@ static int check_dotdot(e2fsck_t ctx,
 {
 	problem_t	problem = 0;
 	unsigned int	rec_len;
-	int		ftype = EXT2_FT_DIR;
 	int		dir_data_error;
+	int		ftype = EXT2_FT_DIR;
 
 	if (!dirent->inode)
 		problem = PR_2_MISSING_DOT_DOT;
@@ -580,7 +574,7 @@ static int check_dotdot(e2fsck_t ctx,
 		if (!ext2fs_has_feature_filetype(ctx->fs->super))
 			ftype = EXT2_FT_UNKNOWN;
 		if (fix_problem(ctx, problem, pctx)) {
-			if (rec_len < 12 && dir_data_error)
+			if (rec_len < 12)
 				dirent->rec_len = 12;
 			/*
 			 * Note: we don't have the parent inode just
