@@ -1,1 +1,0 @@
-test "e2fsck -m" option conflicts with "-C"
