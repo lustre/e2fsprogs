@@ -3280,11 +3280,11 @@ static int e2fsck_pass1_thread_join(e2fsck_t global_ctx, e2fsck_t thread_ctx)
 	return retval;
 }
 
-static int e2fsck_pass1_threads_join(struct e2fsck_thread_info *infos,
-				     e2fsck_t global_ctx)
+static int e2fsck_pass1_threads_join(e2fsck_t global_ctx)
 {
 	errcode_t rc;
 	errcode_t ret = 0;
+	struct e2fsck_thread_info *infos = global_ctx->infos;
 	struct e2fsck_thread_info *pinfo;
 	int num_threads = global_ctx->pfs_num_threads;
 	int i;
@@ -3313,6 +3313,7 @@ static int e2fsck_pass1_threads_join(struct e2fsck_thread_info *infos,
 		}
 	}
 	free(infos);
+	global_ctx->infos = NULL;
 
 	return ret;
 }
@@ -3397,8 +3398,7 @@ static dgrp_t ext2fs_get_avg_group(ext2_filsys fs)
 #endif
 }
 
-static int e2fsck_pass1_threads_start(struct e2fsck_thread_info **pinfo,
-				      e2fsck_t global_ctx)
+static int e2fsck_pass1_threads_start(e2fsck_t global_ctx)
 {
 	struct e2fsck_thread_info	*infos;
 	pthread_attr_t			 attr;
@@ -3431,6 +3431,7 @@ static int e2fsck_pass1_threads_start(struct e2fsck_thread_info **pinfo,
 		pthread_attr_destroy(&attr);
 		return retval;
 	}
+	global_ctx->infos = infos;
 
 	average_group = ext2fs_get_avg_group(global_ctx->fs);
 	for (i = 0; i < num_threads; i++) {
@@ -3471,26 +3472,24 @@ static int e2fsck_pass1_threads_start(struct e2fsck_thread_info **pinfo,
 	}
 
 	if (retval) {
-		e2fsck_pass1_threads_join(infos, global_ctx);
+		e2fsck_pass1_threads_join(global_ctx);
 		return retval;
 	}
-	*pinfo = infos;
 	return 0;
 }
 
 static void e2fsck_pass1_multithread(e2fsck_t global_ctx)
 {
-	struct e2fsck_thread_info *infos = NULL;
 	errcode_t retval;
 
-	retval = e2fsck_pass1_threads_start(&infos, global_ctx);
+	retval = e2fsck_pass1_threads_start(global_ctx);
 	if (retval) {
 		com_err(global_ctx->program_name, retval,
 			_("while starting pass1 threads\n"));
 		goto out_abort;
 	}
 
-	retval = e2fsck_pass1_threads_join(infos, global_ctx);
+	retval = e2fsck_pass1_threads_join(global_ctx);
 	if (retval) {
 		com_err(global_ctx->program_name, retval,
 			_("while joining pass1 threads\n"));
@@ -3536,7 +3535,10 @@ static errcode_t scan_callback(ext2_filsys fs,
 {
 	struct scan_callback_struct *scan_struct;
 	e2fsck_t ctx;
+	dgrp_t cur = group + 1;
 	struct e2fsck_thread *tinfo;
+	struct e2fsck_thread_info *pinfo, *infos;
+	int i;
 
 	scan_struct = (struct scan_callback_struct *) priv_data;
 	ctx = scan_struct->ctx;
@@ -3545,8 +3547,28 @@ static errcode_t scan_callback(ext2_filsys fs,
 		       scan_struct->inodes_to_process,
 		       scan_struct->process_inode_count);
 
+#ifdef HAVE_PTHREAD
+	if (ctx->global_ctx) {
+		cur = 0;
+		infos = ctx->global_ctx->infos;
+		for (i = 0; i < ctx->global_ctx->pfs_num_threads; i++) {
+			pinfo = &infos[i];
+
+			if (!pinfo->eti_started)
+				continue;
+
+			tinfo = &pinfo->eti_thread_ctx->thread_info;
+			if (ctx == pinfo->eti_thread_ctx)
+				cur += group + 1 - tinfo->et_group_start;
+			else
+				cur += tinfo->et_group_next -
+					tinfo->et_group_start;
+		}
+	}
+#endif
+
 	if (ctx->progress)
-		if ((ctx->progress)(ctx, 1, group+1,
+		if ((ctx->progress)(ctx, 1, cur,
 				    ctx->fs->group_desc_count))
 			return EXT2_ET_CANCEL_REQUESTED;
 
