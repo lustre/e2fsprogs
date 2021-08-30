@@ -1049,11 +1049,6 @@ static errcode_t PRS(int argc, char *argv[], e2fsck_t *ret_ctx)
 				_("The -m option should be used together with one of -p/-y/-n options."));
 			fatal_error(ctx, 0);
 		}
-		if (ctx->progress) {
-			com_err(ctx->program_name, 0, "%s",
-				_("Only one of the options -C or -m may be specified."));
-			fatal_error(ctx, 0);
-		}
 	}
 #endif
 	if (ctx->options & E2F_OPT_NO)
@@ -1162,12 +1157,10 @@ static errcode_t PRS(int argc, char *argv[], e2fsck_t *ret_ctx)
 #ifdef SA_RESTART
 	sa.sa_flags = SA_RESTART;
 #endif
-	if ((ctx->options & E2F_OPT_MULTITHREAD) == 0) {
-		sa.sa_handler = signal_progress_on;
-		sigaction(SIGUSR1, &sa, 0);
-		sa.sa_handler = signal_progress_off;
-		sigaction(SIGUSR2, &sa, 0);
-	}
+	sa.sa_handler = signal_progress_on;
+	sigaction(SIGUSR1, &sa, 0);
+	sa.sa_handler = signal_progress_off;
+	sigaction(SIGUSR2, &sa, 0);
 #endif
 
 	/* Update our PATH to include /sbin if we need to run badblocks  */

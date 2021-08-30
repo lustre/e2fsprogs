@@ -494,6 +494,7 @@ struct e2fsck_struct {
 	pthread_rwlock_t	 fs_fix_rwlock;
 	/* protect block_found_map, block_dup_map */
 	pthread_rwlock_t	 fs_block_map_rwlock;
+	struct e2fsck_thread_info	*infos;
 #endif
 };
 
