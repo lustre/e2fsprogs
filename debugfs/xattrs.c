@@ -247,6 +247,22 @@ static int print_lmastr(FILE *f, void *name, void *value, size_t value_len)
 	return 0;
 }
 
+static void print_name(FILE *f, const char *cp, int len)
+{
+	unsigned char ch;
+
+	while (len--) {
+		ch = *cp++;
+		if (!isprint(ch) || ch == '\\') {
+			if (f)
+				fprintf(f, "\\x%02x", ch);
+		} else {
+			if (f)
+				fputc(ch, f);
+		}
+	}
+}
+
 static int print_linkea(FILE *f, void *name, void *value, size_t value_len)
 {
 	struct link_ea_header *leh = value;
@@ -285,9 +301,10 @@ static int print_linkea(FILE *f, void *name, void *value, size_t value_len)
 
 		memcpy(&pfid, &lee->lee_parent_fid, sizeof(pfid));
 		fid_be_to_cpu(&pfid, &pfid);
-		fprintf(f, "%s idx=%u parent="DFID" name='%.*s'\n",
-			i == 0 ? "linkea:" : "         ", i, PFID(&pfid),
-			reclen - (int)sizeof(*lee), lee->lee_name);
+		fprintf(f, "%s idx=%u parent="DFID" name='",
+			i == 0 ? "linkea:" : "         ", i, PFID(&pfid));
+		print_name(f, lee->lee_name, reclen - (int)sizeof(*lee));
+		fprintf(f, "'\n");
 
 		lee = (struct link_ea_entry *)((char *)lee + reclen);
 		value_len -= reclen;
