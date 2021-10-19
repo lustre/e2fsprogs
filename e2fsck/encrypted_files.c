@@ -456,3 +456,142 @@ void destroy_encrypted_file_info(e2fsck_t ctx)
 		ctx->encrypted_files = NULL;
 	}
 }
+
+/**
+ * Search policy matching @policy in @info->policies
+ * @ctx: e2fsck context
+ * @info: encrypted_file_info to look into
+ * @policy: the policy we are looking for
+ * @parent: (out) last known parent, useful to insert a new leaf
+ *	    in @info->policies
+ *
+ * Return: id of found policy on success, -1 if no matching policy found.
+ */
+static inline int search_policy(e2fsck_t ctx, struct encrypted_file_info *info,
+				union fscrypt_policy policy,
+				struct rb_node **parent)
+{
+	struct rb_node *n = info->policies.rb_node;
+	struct policy_map_entry *entry;
+
+	while (n) {
+		int res;
+
+		*parent = n;
+		entry = ext2fs_rb_entry(n, struct policy_map_entry, node);
+		res = cmp_fscrypt_policies(ctx, &policy, &entry->policy);
+		if (res < 0)
+			n = n->rb_left;
+		else if (res > 0)
+			n = n->rb_right;
+		else
+			return entry->policy_id;
+	}
+	return -1;
+}
+
+/*
+ * Merge @src encrypted info into @dest
+ */
+int e2fsck_merge_encrypted_info(e2fsck_t ctx, struct encrypted_file_info *src,
+				 struct encrypted_file_info *dest)
+{
+	struct rb_root *src_policies = &src->policies;
+	__u32 *policy_trans;
+	int i, rc = 0;
+
+	if (dest->file_ranges[src->file_ranges_count - 1].last_ino >
+	    src->file_ranges[0].first_ino) {
+		/* Should never get here */
+		fatal_error(ctx, "Encrypted inodes processed out of order");
+	}
+
+	rc = ext2fs_get_array(src->next_policy_id, sizeof(__u32),
+			      &policy_trans);
+	if (rc)
+		return rc;
+
+	/* First, deal with the encryption policy => ID map.
+	 * Compare encryption policies in src with policies already recorded
+	 * in dest. It can be similar policies, but recorded with a different
+	 * id, so policy_trans array converts policy ids in src to ids in dest.
+	 * This loop examines each policy in src->policies rb tree, updates
+	 * policy_trans, and removes the entry from src, so that src->policies
+	 * rb tree is cleaned up at the end of the loop.
+	 */
+	while (!ext2fs_rb_empty_root(src_policies)) {
+		struct policy_map_entry *entry, *newentry;
+		struct rb_node *new, *parent = NULL;
+		int existing_polid;
+
+		entry = ext2fs_rb_entry(src_policies->rb_node,
+					struct policy_map_entry, node);
+		existing_polid = search_policy(ctx, dest,
+					       entry->policy, &parent);
+		if (existing_polid >= 0) {
+			/* The policy in src is already recorded in dest,
+			 * so just update its id.
+			 */
+			policy_trans[entry->policy_id] = existing_polid;
+		} else {
+			/* The policy in src is new to dest, so insert it
+			 * with the next available id (its original id could
+			 * be already used in dest).
+			 */
+			rc = ext2fs_get_mem(sizeof(*newentry), &newentry);
+			if (rc)
+				goto out_merge;
+			newentry->policy_id = dest->next_policy_id++;
+			newentry->policy = entry->policy;
+			ext2fs_rb_link_node(&newentry->node, parent, &new);
+			ext2fs_rb_insert_color(&newentry->node,
+					       &dest->policies);
+			policy_trans[entry->policy_id] = newentry->policy_id;
+		}
+		ext2fs_rb_erase(&entry->node, src_policies);
+		ext2fs_free_mem(&entry);
+	}
+
+	/* Second, deal with the inode number => encryption policy ID map. */
+	if (dest->file_ranges_capacity <
+	    dest->file_ranges_count + src->file_ranges_count) {
+		/* dest->file_ranges is too short, increase its capacity. */
+		size_t new_capacity = dest->file_ranges_count +
+			src->file_ranges_count;
+
+		/* Make sure we at least double the capacity. */
+		if (new_capacity < (dest->file_ranges_capacity * 2))
+			new_capacity = dest->file_ranges_capacity * 2;
+
+		/* We won't need more than the filesystem's inode count. */
+		if (new_capacity > ctx->fs->super->s_inodes_count)
+			new_capacity = ctx->fs->super->s_inodes_count;
+
+		rc = ext2fs_resize_mem(dest->file_ranges_capacity *
+				       sizeof(struct encrypted_file_range),
+				       new_capacity *
+				       sizeof(struct encrypted_file_range),
+				       &dest->file_ranges);
+		if (rc) {
+			fix_problem(ctx, PR_1_ALLOCATE_ENCRYPTED_INODE_LIST,
+				    NULL);
+			/* Should never get here */
+			ctx->flags |= E2F_FLAG_ABORT;
+			goto out_merge;
+		}
+
+		dest->file_ranges_capacity = new_capacity;
+	}
+	/* Copy file ranges from src to dest. */
+	for (i = 0; i < src->file_ranges_count; i++) {
+		/* Make sure to convert policy ids in src. */
+		src->file_ranges[i].policy_id =
+			policy_trans[src->file_ranges[i].policy_id];
+		dest->file_ranges[dest->file_ranges_count++] =
+			src->file_ranges[i];
+	}
+
+out_merge:
+	ext2fs_free_mem(&policy_trans);
+	return rc;
+}
