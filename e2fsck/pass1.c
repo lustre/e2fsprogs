@@ -2471,9 +2471,6 @@ void e2fsck_pass1_run(e2fsck_t ctx)
 		ctx->ea_block_quota_inodes = 0;
 	}
 
-	/* We don't need the encryption policy => ID map any more */
-	destroy_encryption_policy_map(ctx);
-
 	if (ctx->flags & E2F_FLAG_RESTART) {
 		/*
 		 * Only the master copy of the superblock and block
@@ -2929,6 +2926,23 @@ static void e2fsck_pass1_merge_dx_dir(e2fsck_t global_ctx, e2fsck_t thread_ctx)
 	e2fsck_merge_dx_dir(global_ctx, thread_ctx);
 }
 
+static int e2fsck_pass1_merge_encrypted_info(e2fsck_t global_ctx,
+					      e2fsck_t thread_ctx)
+{
+	if (thread_ctx->encrypted_files == NULL)
+		return 0;
+
+	if (global_ctx->encrypted_files == NULL) {
+		global_ctx->encrypted_files = thread_ctx->encrypted_files;
+		thread_ctx->encrypted_files = NULL;
+		return 0;
+	}
+
+	return e2fsck_merge_encrypted_info(global_ctx,
+					   thread_ctx->encrypted_files,
+					   global_ctx->encrypted_files);
+}
+
 static inline errcode_t
 e2fsck_pass1_merge_icount(ext2_icount_t *dest_icount,
 			  ext2_icount_t *src_icount)
@@ -3187,6 +3201,12 @@ static errcode_t e2fsck_pass1_merge_context(e2fsck_t global_ctx,
 
 	e2fsck_pass1_merge_dir_info(global_ctx, thread_ctx);
 	e2fsck_pass1_merge_dx_dir(global_ctx, thread_ctx);
+	retval = e2fsck_pass1_merge_encrypted_info(global_ctx, thread_ctx);
+	if (retval) {
+		com_err(global_ctx->program_name, 0,
+			_("while merging encrypted info\n"));
+		return retval;
+	}
 
 	retval = e2fsck_pass1_merge_fs(global_ctx->fs, thread_ctx->fs);
 	if (retval) {
