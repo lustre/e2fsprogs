@@ -685,6 +685,8 @@ __u32 find_encryption_policy(e2fsck_t ctx, ext2_ino_t ino);
 
 void destroy_encryption_policy_map(e2fsck_t ctx);
 void destroy_encrypted_file_info(e2fsck_t ctx);
+int e2fsck_merge_encrypted_info(e2fsck_t ctx, struct encrypted_file_info *src,
+				struct encrypted_file_info *dest);
 
 /* extents.c */
 errcode_t e2fsck_rebuild_extents_later(e2fsck_t ctx, ext2_ino_t ino);
