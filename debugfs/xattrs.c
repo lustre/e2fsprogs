@@ -85,7 +85,7 @@ static void print_xattr(FILE *f, char *name, char *value, size_t value_len,
 	fputc('\n', f);
 }
 
-static int print_acl(FILE *f, void *name, void *value, size_t value_len)
+static int print_acl(FILE *f, char *name, void *value, size_t value_len)
 {
 	const ext4_acl_header *ext_acl = (const ext4_acl_header *)value;
 	const char *cp;
@@ -155,7 +155,7 @@ static int print_acl(FILE *f, void *name, void *value, size_t value_len)
 	return 0;
 }
 
-static int print_fidstr(FILE *f, void *name, void *value, size_t value_len)
+static int print_fidstr(FILE *f, char *name, void *value, size_t value_len)
 {
 	struct filter_fid_old *ff = value;
 	int stripe;
@@ -207,7 +207,7 @@ static int print_fidstr(FILE *f, void *name, void *value, size_t value_len)
 	return 0;
 }
 
-static int print_lmastr(FILE *f, void *name, void *value, size_t value_len)
+static int print_lmastr(FILE *f, char *name, void *value, size_t value_len)
 {
 	struct lustre_mdt_attrs *lma = value;
 	struct lustre_ost_attrs *loa = value;
@@ -263,7 +263,7 @@ static void print_name(FILE *f, const char *cp, int len)
 	}
 }
 
-static int print_linkea(FILE *f, void *name, void *value, size_t value_len)
+static int print_linkea(FILE *f, char *name, void *value, size_t value_len)
 {
 	struct link_ea_header *leh = value;
 	struct link_ea_entry *lee;
@@ -315,7 +315,7 @@ static int print_linkea(FILE *f, void *name, void *value, size_t value_len)
 
 struct dump_attr_pretty {
 	const char *dap_name;
-	int (*dap_print)(FILE *f, void *name, void *value, size_t value_len);
+	int (*dap_print)(FILE *f, char *name, void *value, size_t value_len);
 } dumpers[] = {
 	{
 		.dap_name = "system.posix_acl_access",

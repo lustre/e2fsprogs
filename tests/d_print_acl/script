@@ -9,12 +9,10 @@ if ! setfacl --help > /dev/null 2>&1 ; then
 	return 0
 fi
 
-MKFS_DIR=$TMPFILE.dir
+MKFS_DIR=$(mktemp -d ./$test_name-XXXXXX.tmp)
 OUT=$test_name.log
 EXP=$test_dir/expect
 
-rm -rf $MKFS_DIR
-mkdir -p $MKFS_DIR
 mkdir $MKFS_DIR/acl_dir
 
 setfacl --restore=- <<EOF
@@ -30,6 +28,12 @@ default:group:4:r-x
 default:mask::r-x
 default:other::r-x
 EOF
+
+if ! getfattr -d -m - $MKFS_DIR/acl_dir | grep -q posix_acl; then
+	echo "$test_name: $test_description: skipped (no posix_acl xattrs)"
+	rm -rf $MKFS_DIR
+	return 0
+fi
 
 $MKE2FS -q -F -o Linux -T ext4 -b 1024 -d $MKFS_DIR $TMPFILE 16384 > $OUT.new 2>&1
 
