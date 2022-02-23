@@ -311,7 +311,7 @@ bounce_read:
 			size += really_read;
 			goto short_read;
 		}
-		actual = size;
+
 		if (actual > align_size)
 			actual = align_size;
 		actual -= offset;
