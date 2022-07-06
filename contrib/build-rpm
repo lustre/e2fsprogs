@@ -46,6 +46,9 @@ if [ -z "$DISTRO" ]; then
     if grep "SUSE Linux Enterprise Server " /etc/issue; then
         DISTRO="SUSE LINUX"
     fi
+    if grep "Red Hat Enterprise Linux" /etc/system-release; then
+        DISTRO="RedHatEnterprise"
+    fi
 fi
 if [ -z "$DISTRO" ]; then
     echo "Could not determine the distribution.  Please install the lsb_release binary"
@@ -60,6 +63,9 @@ if [ -z "$RELEASE" ]; then
         SUSE\ LINUX)
             RELEASE=$(grep SUSE /etc/issue | sed -e 's/SUSE Linux Enterprise Server //' -e 's/ .*//')
         ;;
+        RedHatEnterprise)
+            RELEASE=$(grep 'Red Hat' /etc/system-release | sed -e 's/Red Hat Enterprise Linux release //' -e 's/ .*//')
+        ;;
     esac
 fi
 if [ -z "$RELEASE" ]; then
@@ -70,17 +76,18 @@ case "$DISTRO-$RELEASE" in
     Scientific-6*) DISTRO=RHEL; RELEASE=6;;
     Scientific-7*) DISTRO=RHEL; RELEASE=7+8;;
     RedHatEnterpriseServer-6*) DISTRO=RHEL; RELEASE=6;;
-    RedHatEnterpriseServer-7*) DISTRO=RHEL; RELEASE=7+8;;
-    RedHatEnterprise-8*) DISTRO=RHEL; RELEASE=7+8;;
+    RedHatEnterpriseServer-7*) DISTRO=RHEL; RELEASE=7+8+9;;
+    RedHatEnterprise-8*) DISTRO=RHEL; RELEASE=7+8+9;;
+    RedHatEnterprise-9*) DISTRO=RHEL; RELEASE=7+8+9;;
     CentOS-6*) DISTRO=RHEL; RELEASE=6;;
-    CentOS-7*) DISTRO=RHEL; RELEASE=7+8;;
-    CentOS-8*) DISTRO=RHEL; RELEASE=7+8;;
-    Rocky-8*) DISTRO=RHEL; RELEASE=7+8;;
-    AlmaLinux-8*) DISTRO=RHEL; RELEASE=7+8;;
+    CentOS-7*) DISTRO=RHEL; RELEASE=7+8+9;;
+    CentOS-8*) DISTRO=RHEL; RELEASE=7+8+9;;
+    Rocky-8*) DISTRO=RHEL; RELEASE=7+8+9;;
+    AlmaLinux-8*) DISTRO=RHEL; RELEASE=7+8+9;;
     Fedora-1[1-4]) DISTRO=RHEL; RELEASE=6;;	# use the same .spec for now
-    Fedora-1[5-9]) DISTRO=RHEL; RELEASE=7+8;;
-    Fedora-2[0-9]) DISTRO=RHEL; RELEASE=7+8;;
-    Fedora-3[0-9]) DISTRO=RHEL; RELEASE=7+8;;
+    Fedora-1[5-9]) DISTRO=RHEL; RELEASE=7+8+9;;
+    Fedora-2[0-9]) DISTRO=RHEL; RELEASE=7+8+9;;
+    Fedora-3[0-9]) DISTRO=RHEL; RELEASE=7+8+9;;
     SUSE\ LINUX-1[1-5]* | SUSE-12* | SUSE-15*) DISTRO=SUSE_LINUX; RELEASE=11+12+15;;
 esac
 
