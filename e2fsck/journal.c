@@ -445,7 +445,6 @@ static int ex_len_compar(const void *arg1, const void *arg2)
 
 static void ex_sort_and_merge(e2fsck_t ctx, struct extent_list *list)
 {
-	blk64_t ex_end;
 	int i, j;
 
 	if (list->count < 2)
@@ -493,7 +492,7 @@ static int ext4_modify_extent_list(e2fsck_t ctx, struct extent_list *list,
 {
 	int ret;
 	int i, offset;
-	struct ext2fs_extent add_ex = *ex, add_ex2;
+	struct ext2fs_extent add_ex = *ex;
 
 	/* First let's create a hole from ex->e_lblk of length ex->e_len */
 	for (i = 0; i < list->count; i++) {
@@ -613,10 +612,9 @@ struct dentry_info_args {
 };
 
 static inline void tl_to_darg(struct dentry_info_args *darg,
-				struct  ext4_fc_tl *tl)
+			      struct ext4_fc_tl *tl)
 {
 	struct ext4_fc_dentry_info *fcd;
-	int tag = le16_to_cpu(tl->fc_tag);
 
 	fcd = (struct ext4_fc_dentry_info *)ext4_fc_tag_val(tl);
 
@@ -629,26 +627,25 @@ static inline void tl_to_darg(struct dentry_info_args *darg,
 	memcpy(darg->dname, fcd->fc_dname, darg->dname_len);
 	darg->dname[darg->dname_len] = 0;
 	jbd_debug(1, "%s: %s, ino %d, parent %d\n",
-		tag == EXT4_FC_TAG_CREAT ? "create" :
-		(tag == EXT4_FC_TAG_LINK ? "link" :
-		(tag == EXT4_FC_TAG_UNLINK ? "unlink" : "error")),
-		darg->dname, darg->ino, darg->parent_ino);
+		  le16_to_cpu(tl->fc_tag) == EXT4_FC_TAG_CREAT ? "create" :
+		  (le16_to_cpu(tl->fc_tag) == EXT4_FC_TAG_LINK ? "link" :
+		   (le16_to_cpu(tl->fc_tag) == EXT4_FC_TAG_UNLINK ? "unlink" :
+		    "error")),
+		  darg->dname, darg->ino, darg->parent_ino);
 }
 
 static int ext4_fc_handle_unlink(e2fsck_t ctx, struct ext4_fc_tl *tl)
 {
-	struct ext2_inode inode;
 	struct dentry_info_args darg;
-	ext2_filsys fs = ctx->fs;
 	int ret;
 
 	tl_to_darg(&darg, tl);
 	ext4_fc_flush_extents(ctx, darg.ino);
-	ret = errcode_to_errno(
-		       ext2fs_unlink(ctx->fs, darg.parent_ino,
-				     darg.dname, darg.ino, 0));
+	ret = errcode_to_errno(ext2fs_unlink(ctx->fs, darg.parent_ino,
+					     darg.dname, darg.ino, 0));
 	/* It's okay if the above call fails */
 	free(darg.dname);
+
 	return ret;
 }
 
@@ -727,7 +724,6 @@ static void ext4_fc_replay_fixup_iblocks(struct ext2_inode_large *ondisk_inode,
 
 static int ext4_fc_handle_inode(e2fsck_t ctx, struct ext4_fc_tl *tl)
 {
-	struct e2fsck_fc_replay_state *state = &ctx->fc_replay_state;
 	int ino, inode_len = EXT2_GOOD_OLD_INODE_SIZE;
 	struct ext2_inode_large *inode = NULL, *fc_inode = NULL;
 	struct ext4_fc_inode *fc_inode_val;
@@ -793,7 +789,6 @@ static int ext4_fc_handle_add_extent(e2fsck_t ctx, struct ext4_fc_tl *tl)
 {
 	struct ext2fs_extent extent;
 	struct ext4_fc_add_range *add_range;
-	struct ext4_fc_del_range *del_range;
 	int ret = 0, ino;
 
 	add_range = (struct ext4_fc_add_range *)ext4_fc_tag_val(tl);

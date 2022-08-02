@@ -2026,7 +2026,6 @@ int e2fsck_process_bad_inode(e2fsck_t ctx, ext2_ino_t dir,
 	unsigned char		*frag, *fsize;
 	struct problem_context	pctx;
 	problem_t		problem = 0;
-	__u16			badness = 0;
 	unsigned int		flags = ctx->fs->flags;
 
 	flags = ctx->fs->flags;

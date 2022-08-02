@@ -1032,7 +1032,6 @@ errcode_t ext2fs_xattrs_read_inode(struct ext2_xattr_handle *handle,
 	unsigned int storage_size;
 	char *start, *block_buf = NULL;
 	blk64_t blk;
-	size_t i;
 	errcode_t err;
 
 	EXT2_CHECK_MAGIC(handle, EXT2_ET_MAGIC_EA_HANDLE);
