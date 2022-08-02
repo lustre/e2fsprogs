@@ -381,7 +381,8 @@ static int check_lustre_zfs(char *mnt_device, const char *real_devname)
 		int line = 0;
 		while (!feof(fp)) {
 			memset(buf, 0, PATH_MAX);
-			fscanf(fp, "%s%*[^\n]", buf);
+			if (fscanf(fp, "%s%*[^\n]", buf) < 1)
+				break;
 			/* skip the first line */
 			if (line++ == 0)
 				continue;
