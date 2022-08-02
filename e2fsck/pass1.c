@@ -1765,7 +1765,6 @@ static int precreated_object(struct ext2_inode *inode)
 
 void e2fsck_pass1_run(e2fsck_t ctx)
 {
-	int	i;
 	ext2_filsys fs = ctx->fs;
 	ext2_ino_t	ino = 0;
 	struct ext2_inode *inode = NULL;
@@ -1789,7 +1788,7 @@ void e2fsck_pass1_run(e2fsck_t ctx)
 	dgrp_t		ra_group = 0;
 	struct ea_quota	ea_ibody_quota;
 	struct process_inode_block *inodes_to_process;
-	int		process_inode_count, check_mmp;
+	int		process_inode_count, check_mmp = 0;
 	e2fsck_t	global_ctx = ctx->global_ctx ? ctx->global_ctx : ctx;
 	int		inode_exp = 0;
 	time_t		tm;
@@ -2291,6 +2290,7 @@ void e2fsck_pass1_run(e2fsck_t ctx)
 			void *ehp;
 #ifdef WORDS_BIGENDIAN
 			__u32 tmp_block[EXT2_N_BLOCKS];
+			int i;
 
 			for (i = 0; i < EXT2_N_BLOCKS; i++)
 				tmp_block[i] = ext2fs_swab32(inode->i_block[i]);
