@@ -1703,7 +1703,6 @@ static int precreated_object(struct ext2_inode *inode)
 
 void e2fsck_pass1_run(e2fsck_t ctx)
 {
-	int	i;
 	ext2_filsys fs = ctx->fs;
 	ext2_ino_t	ino = 0;
 	struct ext2_inode *inode = NULL;
@@ -1727,7 +1726,7 @@ void e2fsck_pass1_run(e2fsck_t ctx)
 	dgrp_t		ra_group = 0;
 	struct ea_quota	ea_ibody_quota;
 	struct process_inode_block *inodes_to_process;
-	int		process_inode_count, check_mmp;
+	int		process_inode_count, check_mmp = 0;
 	e2fsck_t	global_ctx = ctx->global_ctx ? ctx->global_ctx : ctx;
 	int		inode_exp = 0;
 
@@ -2215,6 +2214,7 @@ void e2fsck_pass1_run(e2fsck_t ctx)
 			void *ehp;
 #ifdef WORDS_BIGENDIAN
 			__u32 tmp_block[EXT2_N_BLOCKS];
+			int i;
 
 			for (i = 0; i < EXT2_N_BLOCKS; i++)
 				tmp_block[i] = ext2fs_swab32(inode->i_block[i]);
@@ -2939,7 +2939,6 @@ static void e2fsck_pass1_copy_invalid_bitmaps(e2fsck_t global_ctx,
 static void e2fsck_pass1_merge_invalid_bitmaps(e2fsck_t global_ctx,
 					       e2fsck_t thread_ctx)
 {
-	dgrp_t i, j;
 	dgrp_t grp_start = thread_ctx->thread_info.et_group_start;
 	dgrp_t grp_end = thread_ctx->thread_info.et_group_end;
 	dgrp_t total = grp_end - grp_start;
@@ -3879,7 +3878,6 @@ void e2fsck_mark_inode_bad_loc(e2fsck_t ctx, struct problem_context *pctx,
 			       const int line)
 {
 	__u16 badness_before, badness_after;
-	__u64 pctx_num_sav = pctx->num;
 
 	if (!ctx->inode_badness_threshold)	/* badness is disabled */
 		return;

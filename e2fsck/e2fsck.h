@@ -306,7 +306,7 @@ struct e2fsck_thread {
 	dgrp_t		et_group_next;
 	/* Scanned inode number */
 	ext2_ino_t	et_inode_number;
-	char		et_log_length;
+	int		et_log_length;
 	char		et_log_buf[2048];
 };
 #endif

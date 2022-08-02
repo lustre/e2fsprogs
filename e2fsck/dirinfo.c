@@ -294,8 +294,7 @@ out:
  */
 void e2fsck_add_dir_info(e2fsck_t ctx, ext2_ino_t ino, ext2_ino_t parent)
 {
-	struct dir_info		*dir, *old_array;
-	ext2_ino_t		i, j;
+	struct dir_info		*old_array;
 	errcode_t		retval;
 	unsigned long		old_size;
 

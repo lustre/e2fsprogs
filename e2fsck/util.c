@@ -107,7 +107,6 @@ void log_out(e2fsck_t ctx, const char *fmt, ...)
 	int buf_size;
 	int msg_size;
 	int left_size;
-	int fmt_length = strlen(fmt);
 
 #ifdef HAVE_PTHREAD
 	if ((ctx->options & E2F_OPT_MULTITHREAD) && ctx->global_ctx) {

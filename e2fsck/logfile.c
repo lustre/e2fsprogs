@@ -292,7 +292,6 @@ static FILE *set_up_log_file(e2fsck_t ctx, const char *key, const char *fn)
 	struct string s, s1, s2;
 	char *s0 = 0, *log_dir = 0, *log_fn = 0;
 	int log_dir_wait = 0;
-	int string_size;
 	char string_index[10];
 
 	s.s = s1.s = s2.s = 0;
