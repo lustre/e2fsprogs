@@ -2541,15 +2541,6 @@ static errcode_t e2fsck_pass1_copy_bitmap(ext2_filsys fs, ext2fs_generic_bitmap 
 	return 0;
 }
 
-static void e2fsck_pass1_free_bitmap(ext2fs_generic_bitmap *bitmap)
-{
-	if (*bitmap) {
-		ext2fs_free_generic_bmap(*bitmap);
-		*bitmap = NULL;
-	}
-
-}
-
 static errcode_t e2fsck_pass1_merge_bitmap(ext2_filsys fs, ext2fs_generic_bitmap *src,
 					  ext2fs_generic_bitmap *dest)
 {
@@ -2774,15 +2765,20 @@ static void e2fsck_pass1_merge_invalid_bitmaps(e2fsck_t global_ctx,
 	global_ctx->invalid_bitmaps += thread_ctx->invalid_bitmaps;
 }
 
-static errcode_t e2fsck_pass1_thread_prepare(e2fsck_t global_ctx, e2fsck_t *thread_ctx,
-					     int thread_index, int num_threads,
-					     dgrp_t average_group)
+static errcode_t e2fsck_pass1_thread_prepare(e2fsck_t global_ctx,
+					     e2fsck_t *thread_ctx,
+					     int thread_index,
+					     dgrp_t average_group,
+					     ext2_ino_t average_inodes,
+					     dgrp_t *start_group,
+					     int *inode_count, int last_thread)
 {
 	errcode_t		retval;
 	e2fsck_t		thread_context;
 	ext2_filsys		thread_fs;
 	ext2_filsys		global_fs = global_ctx->fs;
 	struct e2fsck_thread	*tinfo;
+	dgrp_t			grp;
 
 	assert(global_ctx->inode_used_map == NULL);
 	assert(global_ctx->inode_dir_map == NULL);
@@ -2831,18 +2827,53 @@ static errcode_t e2fsck_pass1_thread_prepare(e2fsck_t global_ctx, e2fsck_t *thre
 	set_up_logging(thread_context);
 
 	tinfo = &thread_context->thread_info;
-	tinfo->et_group_start = average_group * thread_index;
-	if (thread_index == global_fs->fs_num_threads - 1)
-		tinfo->et_group_end = thread_fs->group_desc_count;
-	else
-		tinfo->et_group_end = average_group * (thread_index + 1);
+
+	tinfo->et_group_start = *start_group;
+
+	/* Try to allocate an equal number of in-use inodes to each thread,
+	 * rather than an equal number of block groups.   Accumulate inodes
+	 * to each thread until approximately the average number is reached.
+	 *
+	 * If the thread has least one group, and the inode count is closer
+	 * to the average *before* adding the next group, then stop before
+	 * adding it.  Accumumlate the difference between ideal distribution
+	 * and actual number assigned to each thread to avoid to drifting too
+	 * far from the average, similar to Bresenham line drawing algorithm.
+	 *
+	 * Limit groups per thread to 5x the average, in case the group
+	 * descriptor summaries are bad (e.g. read from backups with no info).
+	 *
+	 * Assign all remaining groups to last thread if distribution was bad.
+	 */
+	for (grp = *start_group; grp < global_fs->group_desc_count; grp++) {
+		ext2_ino_t grp_used = global_fs->super->s_inodes_per_group -
+			ext2fs_bg_free_inodes_count(global_fs, grp);
+		ext2_ino_t next_count = *inode_count + grp_used;
+
+		if (((next_count >= average_inodes && grp > *start_group &&
+		      (long)next_count - average_inodes >
+		      (long)average_inodes - *inode_count) ||
+		     grp - *start_group > average_group * 5) && !last_thread) {
+			*inode_count -= average_inodes;
+			break;
+		}
+		tinfo->et_inode_count += grp_used;
+		*inode_count = next_count;
+	}
+	tinfo->et_group_end = grp;
+	*start_group = grp;
 	tinfo->et_group_next = tinfo->et_group_start;
 	tinfo->et_inode_number = 0;
 	tinfo->et_log_buf[0] = '\0';
 	tinfo->et_log_length = 0;
 	if (thread_context->options & E2F_OPT_MULTITHREAD)
-		log_out(thread_context, _("Scan group range [%d, %d)\n"),
-			tinfo->et_group_start, tinfo->et_group_end);
+		log_out(thread_context,
+			_("Scan group range [%d, %d], used inodes %u/%u\n"),
+			tinfo->et_group_start,
+			tinfo->et_group_end ? tinfo->et_group_end - 1 : 0,
+			tinfo->et_inode_count,
+			(tinfo->et_group_end - tinfo->et_group_start) *
+				global_fs->super->s_inodes_per_group );
 	thread_context->fs = thread_fs;
 	retval = quota_init_context(&thread_context->qctx, thread_fs, 0);
 	if (retval) {
@@ -3347,12 +3378,15 @@ static void *e2fsck_pass1_thread(void *arg)
 	e2fsck_pass1_run(thread_ctx);
 
 out:
-	if (thread_ctx->options & E2F_OPT_MULTITHREAD)
+	if (thread_ctx->options & E2F_OPT_MULTITHREAD) {
+		dgrp_t end = thread_ctx->thread_info.et_group_end;
+
 		log_out(thread_ctx,
-			_("Scanned group range [%u, %u), inodes %u\n"),
-			thread_ctx->thread_info.et_group_start,
-			thread_ctx->thread_info.et_group_end,
+			_("Scanned group range [%u, %u], used inodes %u/%u\n"),
+			thread_ctx->thread_info.et_group_start, end ? end - 1 : 0,
+			thread_ctx->thread_info.et_inode_count,
 			thread_ctx->thread_info.et_inode_number);
+	}
 
 #ifdef DEBUG_THREADS
 	pthread_mutex_lock(&thread_debug->etd_mutex);
@@ -3364,14 +3398,15 @@ out:
 	return NULL;
 }
 
+/* return the average number of groups per thread */
 static dgrp_t ext2fs_get_avg_group(ext2_filsys fs)
 {
+	dgrp_t average_group = fs->group_desc_count;
 #ifdef HAVE_PTHREAD
-	dgrp_t average_group;
 	unsigned flexbg_size;
 
 	if (fs->fs_num_threads <= 1)
-		return fs->group_desc_count;
+		goto out;
 
 	average_group = fs->group_desc_count / fs->fs_num_threads;
 	if (average_group <= 1)
@@ -3386,11 +3421,27 @@ static dgrp_t ext2fs_get_avg_group(ext2_filsys fs)
 			average_group = times * flexbg_size;
 		}
 	}
-
-	return average_group;
-#else
-	return fs->group_desc_count;
+out:
 #endif
+	return average_group;
+}
+
+/* return the average number of used inodes to scan per thread */
+static dgrp_t ext2fs_get_avg_inodes(ext2_filsys fs)
+{
+	ext2_ino_t average_inodes = fs->super->s_inodes_count -
+				    fs->super->s_free_inodes_count;
+
+#ifdef HAVE_PTHREAD
+
+	if (fs->fs_num_threads <= 1)
+		goto out;
+
+	average_inodes /= fs->fs_num_threads;
+
+out:
+#endif
+	return average_inodes;
 }
 
 static int e2fsck_pass1_threads_start(e2fsck_t global_ctx)
@@ -3400,9 +3451,12 @@ static int e2fsck_pass1_threads_start(e2fsck_t global_ctx)
 	errcode_t			 retval;
 	errcode_t			 ret;
 	struct e2fsck_thread_info	*tmp_pinfo;
-	int				 i;
+	int				 thread;
 	e2fsck_t			 thread_ctx;
+	dgrp_t				 start_group;
 	dgrp_t				 average_group;
+	ext2_ino_t			 average_inodes;
+	int				 inode_count;
 	int num_threads = global_ctx->pfs_num_threads;
 #ifdef DEBUG_THREADS
 	struct e2fsck_thread_debug	 thread_debug =
@@ -3429,15 +3483,19 @@ static int e2fsck_pass1_threads_start(e2fsck_t global_ctx)
 	global_ctx->infos = infos;
 
 	average_group = ext2fs_get_avg_group(global_ctx->fs);
-	for (i = 0; i < num_threads; i++) {
-		tmp_pinfo = &infos[i];
-		tmp_pinfo->eti_thread_index = i;
+	average_inodes = ext2fs_get_avg_inodes(global_ctx->fs);
+	for (thread = 0, start_group = 0, inode_count = 0;
+	     thread < num_threads; thread++) {
+		tmp_pinfo = &infos[thread];
+		tmp_pinfo->eti_thread_index = thread;
 #ifdef DEBUG_THREADS
 		tmp_pinfo->eti_debug = &thread_debug;
 #endif
 		retval = e2fsck_pass1_thread_prepare(global_ctx, &thread_ctx,
-						     i, num_threads,
-						     average_group);
+						     thread, average_group,
+						     average_inodes,
+						     &start_group, &inode_count,
+						     thread == num_threads - 1);
 		if (retval) {
 			com_err(global_ctx->program_name, retval,
 				_("while preparing pass1 thread\n"));
@@ -3522,7 +3580,7 @@ void e2fsck_pass1(e2fsck_t ctx)
 
 /*
  * When the inode_scan routines call this callback at the end of the
- * glock group, call process_inodes.
+ * block group, call process_inodes.
  */
 static errcode_t scan_callback(ext2_filsys fs,
 			       ext2_inode_scan scan EXT2FS_ATTR((unused)),
@@ -3570,11 +3628,11 @@ static errcode_t scan_callback(ext2_filsys fs,
 #ifdef HAVE_PTHREAD
 	if (ctx->global_ctx) {
 		tinfo = &ctx->thread_info;
-		tinfo->et_group_next++;
 		if (ctx->options & E2F_OPT_DEBUG &&
 		    ctx->options & E2F_OPT_MULTITHREAD)
 			log_out(ctx, _("group %d finished\n"),
 				tinfo->et_group_next);
+		tinfo->et_group_next++;
 		if (tinfo->et_group_next >= tinfo->et_group_end)
 			return EXT2_ET_SCAN_FINISHED;
 	}
