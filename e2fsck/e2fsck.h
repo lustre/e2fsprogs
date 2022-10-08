@@ -303,6 +303,8 @@ struct e2fsck_thread {
 	dgrp_t		et_group_end;
 	/* The next group number to check */
 	dgrp_t		et_group_next;
+	/* total number of inodes assigned to this thread */
+	ext2_ino_t	et_inode_count;
 	/* Scanned inode number */
 	ext2_ino_t	et_inode_number;
 	int		et_log_length;
