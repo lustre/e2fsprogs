@@ -1,7 +1,7 @@
 Summary: Utilities for managing ext2, ext3, and ext4 file systems
 Name: e2fsprogs
 Version: @E2FSPROGS_PKGVER@
-Release: 0%{?dist}
+Release: @E2FSPROGS_PKGREL@%{?dist}
 
 # License tags based on COPYING file distinctions for various components
 License: GPLv2

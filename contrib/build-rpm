@@ -11,6 +11,7 @@ pwd=`pwd`
 currdir=`basename $pwd`
 pkgname=`grep Name: e2fsprogs.spec | awk '{print $2;}'`
 pkgvers=`grep Version: e2fsprogs.spec | awk '{print $2;}'`
+pkgrel=`grep Release: e2fsprogs.spec | awk '{print $2;}'`
 builddir=${pkgname}-${pkgvers}
 
 # ensure that $TMP is set to something
@@ -89,6 +90,10 @@ if [ ! -f "$SPECFILE" ]; then
     SPECFILE="$currdir/e2fsprogs.spec"
 fi
 echo "using SPECFILE=$SPECFILE"
+grep VERSION $currdir/version.h
+grep Version: $SPECFILE
+grep Release: $SPECFILE
+
 $RPM --define "_sourcedir $tmpdir" \
      --define "_topdir ${RPM_TOPDIR:-$(rpm -E %_topdir)}" \
      --define "_tmpdir ${RPM_TMPDIR:-$TMP}" \

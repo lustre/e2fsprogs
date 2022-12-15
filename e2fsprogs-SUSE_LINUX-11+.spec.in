@@ -64,7 +64,7 @@ Conflicts:      libcom_err-mini-devel
 %endif
 #
 Version:        @E2FSPROGS_PKGVER@
-Release:        0%{_vendor}
+Release:        @E2FSPROGS_PKGREL@.%{_vendor}
 Summary:        Utilities for the Second Extended File System
 License:        GPL-2.0
 Group:          System/Filesystems
