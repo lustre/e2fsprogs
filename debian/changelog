@@ -1,3 +1,23 @@
+e2fsprogs (1.46.6-wc1) unstable; urgency=medium
+
+  * Whamcloud Lustre-patched release 1.46.6-wc1
+  * sec: support encrypted files handling in pfsck mode
+  * e2fsck: fix ".." more gracefully if possible
+  * e2fsck: check trusted.link when fixing nlink
+  * e2fsck: quiet 'extent tree could be narrower'
+  * mke2fs: avoid too large stride and stripe_width
+  * mke2fs: allow 64bit feature without extents
+  * mke2fs: avoid inode number error with large FS
+  * debugfs: decode and dump xattrs on inode stat
+  * e2fsck: add support for dirdata feature
+  * e2fsck: track errors/badness found for each inode
+  * e2fsck: add support for expanding the inode size
+  * filefrag: add "-l" option for logical device ordering
+  * build: fix debhelper level requirement
+  * e2fsck: add parallel fsck with "-m" option
+
+ -- Andreas Dilger <adilger@whamcloud.com>  Tue, 10 Jan 2022 17:42:23 -0700
+
 e2fsprogs (1.46.6~rc1-1) unstable; urgency=medium
 
   * Trial upstream release for 1.46.6
