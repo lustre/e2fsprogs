@@ -647,6 +647,7 @@ static void show_stats(ext2_filsys fs)
 	blk64_t			group_block;
 	dgrp_t			i;
 	int			need, col_left;
+	int			is_first_backup = 1;
 
 	if (!verbose) {
 		printf(_("Creating filesystem with %llu %dk blocks and "
@@ -717,8 +718,10 @@ skip_details:
 		group_block += s->s_blocks_per_group;
 		if (!ext2fs_bg_has_super(fs, i))
 			continue;
-		if (i != 1)
+		if (!is_first_backup)
 			printf(", ");
+		else
+			is_first_backup = 0;
 		need = int_log10(group_block) + 2;
 		if (need > col_left) {
 			printf("\n\t");
@@ -3287,12 +3290,12 @@ int main (int argc, char *argv[])
 	if (fs_param.s_flags & EXT2_FLAGS_TEST_FILESYS)
 		fs->super->s_flags |= EXT2_FLAGS_TEST_FILESYS;
 
-	if (ext2fs_has_feature_flex_bg(&fs_param) ||
-	    ext2fs_has_feature_huge_file(&fs_param) ||
-	    ext2fs_has_feature_gdt_csum(&fs_param) ||
-	    ext2fs_has_feature_dir_nlink(&fs_param) ||
-	    ext2fs_has_feature_metadata_csum(&fs_param) ||
-	    ext2fs_has_feature_extra_isize(&fs_param))
+	if (ext2fs_has_feature_flex_bg(fs->super) ||
+	    ext2fs_has_feature_huge_file(fs->super) ||
+	    ext2fs_has_feature_gdt_csum(fs->super) ||
+	    ext2fs_has_feature_dir_nlink(fs->super) ||
+	    ext2fs_has_feature_metadata_csum(fs->super) ||
+	    ext2fs_has_feature_extra_isize(fs->super))
 		fs->super->s_kbytes_written = 1;
 
 	/*

@@ -379,6 +379,21 @@ ipg_retry:
 
 	super->s_free_inodes_count = super->s_inodes_count;
 
+	/* Set up the locations of the backup superblocks */
+	if (ext2fs_has_feature_sparse_super2(super)) {
+		if (super->s_backup_bgs[0] >= fs->group_desc_count)
+			super->s_backup_bgs[0] = fs->group_desc_count - 1;
+		if (super->s_backup_bgs[1] >= fs->group_desc_count)
+			super->s_backup_bgs[1] = fs->group_desc_count - 1;
+		if (super->s_backup_bgs[0] == super->s_backup_bgs[1])
+			super->s_backup_bgs[1] = 0;
+		if (super->s_backup_bgs[0] > super->s_backup_bgs[1]) {
+			__u32 t = super->s_backup_bgs[0];
+			super->s_backup_bgs[0] = super->s_backup_bgs[1];
+			super->s_backup_bgs[1] = t;
+		}
+	}
+
 	/*
 	 * check the number of reserved group descriptor table blocks
 	 */
@@ -391,12 +406,57 @@ ipg_retry:
 		retval = EXT2_ET_RES_GDT_BLOCKS;
 		goto cleanup;
 	}
-	/* Enable meta_bg if we'd lose more than 3/4 of a BG to GDT blocks. */
+
+	/* Try to pack the gdt blocks together */
 	if (super->s_reserved_gdt_blocks + fs->desc_blocks >
 	    super->s_blocks_per_group * 3 / 4) {
-		ext2fs_set_feature_meta_bg(fs->super);
-		ext2fs_clear_feature_resize_inode(fs->super);
-		set_field(s_reserved_gdt_blocks, 0);
+		if (!ext2fs_has_feature_meta_bg(fs->super)) {
+			unsigned int three = 1, five = 5, seven = 7;
+			unsigned int overhead_per_grp = 2 + fs->inode_blocks_per_group;
+			dgrp_t group, overhead_grps;
+			__u32 backup_bgs[2] = {0, 0};
+
+			if (!ext2fs_has_feature_sparse_super2(fs->super)) {
+				ext2fs_set_feature_sparse_super2(fs->super);
+				ext2fs_clear_feature_sparse_super(fs->super);
+				super->s_backup_bgs[0] = 1;
+				super->s_backup_bgs[1] = ~0;
+			}
+		        if (!ext2fs_has_feature_flex_bg(fs->super)) {
+				ext2fs_set_feature_flex_bg(fs->super);
+				/* use 256 as flex_bg_size for 1MiB read size */
+				super->s_log_groups_per_flex = 8;
+			}
+
+			overhead = 1 + super->s_reserved_gdt_blocks +
+					fs->desc_blocks;
+			if (fs->blocksize == 1024)
+				overhead++;
+			overhead_grps = ext2fs_div_ceil(overhead,
+						super->s_blocks_per_group);
+
+			while ((group = ext2fs_list_backups(NULL, &three, &five, &seven)) <
+			       fs->group_desc_count) {
+				blk64_t blks = ext2fs_blocks_count(fs->super) -
+						ext2fs_group_first_block2(fs, group);
+
+				if (group >= overhead_grps && backup_bgs[0] == 0)
+					backup_bgs[0] = group;
+
+				if (blks >= (fs->group_desc_count - group) *
+						overhead_per_grp + overhead)
+					backup_bgs[1] = group;
+			}
+
+			if (ext2fs_group_blocks_count(fs, fs->group_desc_count - 1) >=
+					overhead + overhead_per_grp + 50)
+				backup_bgs[1] = fs->group_desc_count - 1;
+
+			if (super->s_backup_bgs[0])
+				super->s_backup_bgs[0] = backup_bgs[0];
+			if (super->s_backup_bgs[1])
+				super->s_backup_bgs[1] = backup_bgs[1];
+		}
 	}
 
 	/*
@@ -414,7 +474,9 @@ ipg_retry:
 		overhead += fs->desc_blocks;
 
 	/* This can only happen if the user requested too many inodes */
-	if (overhead > super->s_blocks_per_group) {
+	if (overhead > super->s_blocks_per_group &&
+	    !(ext2fs_has_feature_sparse_super2(fs->super) &&
+	      ext2fs_has_feature_flex_bg(fs->super))) {
 		retval = EXT2_ET_TOO_MANY_INODES;
 		goto cleanup;
 	}
@@ -427,20 +489,12 @@ ipg_retry:
 	 * backup.
 	 */
 	overhead = (int) (2 + fs->inode_blocks_per_group);
-	has_bg = 0;
-	if (ext2fs_has_feature_sparse_super2(super)) {
-		/*
-		 * We have to do this manually since
-		 * super->s_backup_bgs hasn't been set up yet.
-		 */
-		if (fs->group_desc_count == 2)
-			has_bg = param->s_backup_bgs[0] != 0;
-		else
-			has_bg = param->s_backup_bgs[1] != 0;
-	} else
-		has_bg = ext2fs_bg_has_super(fs, fs->group_desc_count - 1);
-	if (has_bg)
-		overhead += 1 + fs->desc_blocks + super->s_reserved_gdt_blocks;
+	if (ext2fs_bg_has_super(fs, fs->group_desc_count - 1)) {
+		overhead++;
+		if (!ext2fs_has_feature_meta_bg(fs->super))
+			overhead += fs->desc_blocks +
+					super->s_reserved_gdt_blocks;
+	}
 	rem = ((ext2fs_blocks_count(super) - super->s_first_data_block) %
 	       super->s_blocks_per_group);
 	if ((fs->group_desc_count == 1) && rem && (rem < overhead)) {
@@ -467,21 +521,6 @@ ipg_retry:
 	 * we can do any and all allocations that depend on the block
 	 * count.
 	 */
-
-	/* Set up the locations of the backup superblocks */
-	if (ext2fs_has_feature_sparse_super2(super)) {
-		if (super->s_backup_bgs[0] >= fs->group_desc_count)
-			super->s_backup_bgs[0] = fs->group_desc_count - 1;
-		if (super->s_backup_bgs[1] >= fs->group_desc_count)
-			super->s_backup_bgs[1] = fs->group_desc_count - 1;
-		if (super->s_backup_bgs[0] == super->s_backup_bgs[1])
-			super->s_backup_bgs[1] = 0;
-		if (super->s_backup_bgs[0] > super->s_backup_bgs[1]) {
-			__u32 t = super->s_backup_bgs[0];
-			super->s_backup_bgs[0] = super->s_backup_bgs[1];
-			super->s_backup_bgs[1] = t;
-		}
-	}
 
 	retval = ext2fs_get_mem(strlen(fs->device_name) + 80, &buf);
 	if (retval)
