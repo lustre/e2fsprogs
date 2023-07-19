@@ -442,6 +442,14 @@ effect only if the
 feature is set.   The default quota types to be initialized if this
 option is not specified is both user and group quotas.  If the project
 feature is enabled that project quotas will be initialized as well.
+.TP
+.BI iops= <size_range>[:<size_range>][...]
+Specify IOPS block group size range like:
+.B iops=0-1024G:4096-8192G
+So the file system can get the knowledge that which block groups to be accessed
+are on a relatively faster storage and allow the kernel block allocator to
+optimize metadata allocations onto high-IOPS storage for a hybrid flash/HDD
+devices for better performance.
 .RE
 .TP
 .B \-F
