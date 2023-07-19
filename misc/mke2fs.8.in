@@ -445,6 +445,14 @@ parity in a RAID stripe if possible when the data is written.
 .B test_fs
 Set a flag in the file system superblock indicating that it may be
 mounted using experimental kernel code, such as the ext4dev file system.
+.TP
+.BI iops= <size_range>[:<size_range>][...]
+Specify IOPS block group size range like:
+.B iops=0-1024G:4096-8192G
+So the file system can get the knowledge that which block groups to be accessed
+are on a relatively faster storage and allow the kernel block allocator to
+optimize metadata allocations onto high-IOPS storage for a hybrid flash/HDD
+devices for better performance.
 .RE
 .TP
 .B \-F

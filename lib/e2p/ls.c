@@ -162,6 +162,10 @@ static void print_super_flags(struct ext2_super_block * s, FILE *f)
 		fputs("test_filesystem ", f);
 		flags_found++;
 	}
+	if (s->s_flags & EXT2_FLAGS_HAS_IOPS) {
+		fputs("iops ", f);
+		flags_found++;
+	}
 	if (flags_found)
 		fputs("\n", f);
 	else
