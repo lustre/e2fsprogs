@@ -515,6 +515,8 @@ void do_show_super_stats(int argc, ss_argv_t argv,
 			      &first, out);
 		print_bg_opts(current_fs, i, EXT2_BG_BLOCK_UNINIT, "Block not init",
 			      &first, out);
+		print_bg_opts(current_fs, i, EXT2_BG_IOPS, "IOPS",
+			      &first, out);
 		if (gdt_csum) {
 			fprintf(out, "%sChecksum 0x%04x",
 				first ? "           [":", ", ext2fs_bg_checksum(current_fs, i));

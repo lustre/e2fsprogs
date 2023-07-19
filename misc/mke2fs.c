@@ -107,6 +107,10 @@ static __u64	offset;
 static blk64_t journal_location = ~0LL;
 static int	proceed_delay = -1;
 static blk64_t	dev_size;
+blk64_t		iops_array[64];
+unsigned int	iops_size = sizeof(iops_array);
+unsigned int	iops_count = 0;
+blk64_t		*iops_range = iops_array;
 
 static struct ext2_super_block fs_param;
 static __u32 zero_buf[4];
@@ -761,6 +765,54 @@ static int set_os(struct ext2_super_block *sb, char *os)
 	return 1;
 }
 
+static int parse_range(char *p_start, char *p_end, char *p_hyphen)
+{
+	blk64_t start, end;
+	blk64_t *new_array;
+
+	/**
+	 * e.g  0-1024G
+	 *      ^      ^
+	 *      |      |
+	 *   p_start  p_end
+	 */
+	end = parse_num_blocks(p_hyphen + 1, -1);
+
+	if (!isdigit(*(p_end - 1)) && isdigit(*(p_hyphen -1))) {
+		/* copy G/M/K unit to start value */
+		*p_hyphen = *(p_end - 1);
+		p_hyphen++;
+	}
+	*p_hyphen = 0;
+
+	start = parse_num_blocks(p_start, -1);
+
+	/* add to iops_range */
+	if (iops_count == iops_size) {
+		iops_size <<= 1;
+		if (iops_size == 0) {
+			iops_size = iops_count;
+			return -E2BIG;
+		}
+		if (iops_range == iops_array)
+			new_array = malloc(iops_size * sizeof(blk64_t));
+		else
+			new_array = realloc(iops_range,
+					    iops_size * sizeof(blk64_t));
+		if (!new_array) {
+			iops_size >>= 1;
+			return -ENOMEM;
+		} else {
+			iops_range = new_array;
+		}
+	}
+
+	iops_range[iops_count++] = start;
+	iops_range[iops_count++] = end;
+
+	return 0;
+}
+
 #define PATH_SET "PATH=/sbin"
 
 static void parse_extended_opts(struct ext2_super_block *param,
@@ -1100,6 +1152,61 @@ static void parse_extended_opts(struct ext2_super_block *param,
 				r_usage++;
 				continue;
 			}
+		} else if (!strcmp(token, "iops")) {
+			char *p_colon, *p_hyphen;
+
+			/* example: iops=0-1024G:4096-8192G */
+
+			if (!arg) {
+				r_usage++;
+				badopt = token;
+				continue;
+			}
+			p_colon = strchr(arg, ':');
+			while (p_colon != NULL) {
+				*p_colon = 0;
+
+				p_hyphen = strchr(arg, '-');
+				if (p_hyphen == NULL) {
+					fprintf(stderr,
+						_("error: parse iops %s\n"),
+						arg);
+					r_usage++;
+					badopt = token;
+					break;
+				}
+
+				ret = parse_range(arg, p_colon, p_hyphen);
+				if (ret < 0) {
+					fprintf(stderr,
+						_("error: parse iops %s:%d\n"),
+						arg, ret);
+					r_usage++;
+					badopt = token;
+					break;
+				}
+
+				arg = p_colon + 1;
+				p_colon = strchr(arg, ':');
+			}
+			p_hyphen = strchr(arg, '-');
+			if (p_hyphen == NULL) {
+				fprintf(stderr,
+					_("error: parse iops %s\n"), arg);
+				r_usage++;
+				badopt = token;
+				continue;
+			}
+
+			ret = parse_range(arg, arg + strlen(arg), p_hyphen);
+			if (ret	< 0) {
+				fprintf(stderr,
+					_("error: parse iops %s:%d\n"),
+					arg, ret);
+				r_usage++;
+				badopt = token;
+				continue;
+			}
 		} else {
 			r_usage++;
 			badopt = token;
@@ -1128,10 +1235,13 @@ static void parse_extended_opts(struct ext2_super_block *param,
 			"\trevision=<revision>\n"
 			"\tencoding=<encoding>\n"
 			"\tencoding_flags=<flags>\n"
+			"\tiops=<iops storage size range>\n"
 			"\tquotatype=<quota type(s) to be enabled>\n"
 			"\tassume_storage_prezeroed=<0 to disable, 1 to enable>\n\n"),
 			badopt ? badopt : "");
 		free(buf);
+		if (iops_range != iops_array)
+			free(iops_range);
 		exit(1);
 	}
 	if (param->s_raid_stride &&
@@ -3098,6 +3208,29 @@ try_user:
 	return 0;
 }
 
+static void ext2fs_set_iops_group(ext2_filsys fs, blk64_t *array, int count)
+{
+	int i;
+	dgrp_t j, start, end;
+
+	if (!array || !count)
+		return;
+
+	for (i = 0; i < count; i += 2) {
+		start = ext2fs_div64_ceil(ext2fs_div64_ceil(array[i],
+							    fs->blocksize),
+					  EXT2_BLOCKS_PER_GROUP(fs->super));
+		end = ext2fs_div64_ceil(ext2fs_div64_ceil(array[i + 1],
+							  fs->blocksize),
+					EXT2_BLOCKS_PER_GROUP(fs->super));
+
+		for (j = start; j < end; j++) {
+			ext2fs_bg_flags_set(fs, j, EXT2_BG_IOPS);
+			ext2fs_group_desc_csum_set(fs, j);
+		}
+	}
+}
+
 int main (int argc, char *argv[])
 {
 	errcode_t	retval = 0;
@@ -3179,6 +3312,16 @@ int main (int argc, char *argv[])
 			_("while setting up superblock"));
 		exit(1);
 	}
+
+	if (iops_range && iops_count) {
+		ext2fs_set_iops_group(fs, iops_range, iops_count);
+		fs->super->s_flags |= EXT2_FLAGS_HAS_IOPS;
+		ext2fs_mark_super_dirty(fs);
+
+		if (iops_range != iops_array)
+			free(iops_range);
+	}
+
 	fs->progress_ops = &ext2fs_numeric_progress_ops;
 
 	/* Set the error behavior */
