@@ -2729,8 +2729,8 @@ static errcode_t e2fsck_pass1_merge_dirs_to_hash(e2fsck_t global_ctx,
 static errcode_t e2fsck_pass1_merge_ea_inode_refs(e2fsck_t global_ctx,
 						  e2fsck_t thread_ctx)
 {
-	ea_value_t count;
-	blk64_t blk;
+	ea_value_t thread_count, global_count;
+	ea_key_t ino;
 	errcode_t retval;
 
 	if (!thread_ctx->ea_inode_refs)
@@ -2744,17 +2744,15 @@ static errcode_t e2fsck_pass1_merge_ea_inode_refs(e2fsck_t global_ctx,
 
 	ea_refcount_intr_begin(thread_ctx->ea_inode_refs);
 	while (1) {
-		if ((blk = ea_refcount_intr_next(thread_ctx->ea_inode_refs,
-						 &count)) == 0)
+		if ((ino = ea_refcount_intr_next(thread_ctx->ea_inode_refs,
+						 &thread_count)) == 0)
 			break;
-		if (!global_ctx->block_ea_map ||
-		    !ext2fs_fast_test_block_bitmap2(global_ctx->block_ea_map,
-						    blk)) {
-			retval = ea_refcount_store(global_ctx->ea_inode_refs,
-						   blk, count);
-			if (retval)
-				return retval;
-		}
+		ea_refcount_fetch(global_ctx->ea_inode_refs,
+				  ino, &global_count);
+		retval = ea_refcount_store(global_ctx->ea_inode_refs,
+					   ino, thread_count + global_count);
+		if (retval)
+			return retval;
 	}
 
 	return retval;
