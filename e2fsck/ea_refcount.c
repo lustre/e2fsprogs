@@ -16,193 +16,100 @@
 #undef ENABLE_NLS
 #endif
 #include "e2fsck.h"
+#include "ext2fs/rbtree.h"
 
 /*
  * The strategy we use for keeping track of EA refcounts is as
- * follows.  We keep a sorted array of first EA blocks and its
- * reference counts.  Once the refcount has dropped to zero, it is
- * removed from the array to save memory space.  Once the EA block is
+ * follows.  We keep the first EA blocks and its reference counts
+ * in the rb-tree.  Once the refcount has dropped to zero, it is
+ * removed from the rb-tree to save memory space.  Once the EA block is
  * checked, its bit is set in the block_ea_map bitmap.
  */
 struct ea_refcount_el {
+	struct rb_node	node;
 	/* ea_key could either be an inode number or block number. */
 	ea_key_t	ea_key;
 	ea_value_t	ea_value;
 };
 
 struct ea_refcount {
-	size_t		count;
-	size_t		size;
-	size_t		cursor;
-	struct ea_refcount_el	*list;
+	struct rb_root	root;
+	struct rb_node	*cursor;
 };
 
 void ea_refcount_free(ext2_refcount_t refcount)
 {
+	struct ea_refcount_el *el;
+	struct rb_node *node, *next;
+
 	if (!refcount)
 		return;
 
-	if (refcount->list)
-		ext2fs_free_mem(&refcount->list);
+	for (node = ext2fs_rb_first(&refcount->root); node; node = next) {
+		next = ext2fs_rb_next(node);
+		el = ext2fs_rb_entry(node, struct ea_refcount_el, node);
+		ext2fs_rb_erase(node, &refcount->root);
+		ext2fs_free_mem(&el);
+	}
 	ext2fs_free_mem(&refcount);
 }
 
-errcode_t ea_refcount_create(size_t size, ext2_refcount_t *ret)
+errcode_t ea_refcount_create(ext2_refcount_t *ret)
 {
 	ext2_refcount_t	refcount;
 	errcode_t	retval;
-	size_t		bytes;
 
 	retval = ext2fs_get_memzero(sizeof(struct ea_refcount), &refcount);
 	if (retval)
 		return retval;
-
-	if (!size)
-		size = 500;
-	refcount->size = size;
-	bytes = size * sizeof(struct ea_refcount_el);
-#ifdef DEBUG
-	printf("Refcount allocated %zu entries, %zu bytes.\n",
-	       refcount->size, bytes);
-#endif
-	retval = ext2fs_get_memzero(bytes, &refcount->list);
-	if (retval)
-		goto errout;
-
-	refcount->count = 0;
-	refcount->cursor = 0;
+	refcount->root = RB_ROOT;
 
 	*ret = refcount;
 	return 0;
-
-errout:
-	ea_refcount_free(refcount);
-	return(retval);
 }
-
-/*
- * collapse_refcount() --- go through the refcount array, and get rid
- * of any count == zero entries
- */
-static void refcount_collapse(ext2_refcount_t refcount)
-{
-	unsigned int	i, j;
-	struct ea_refcount_el	*list;
-
-	list = refcount->list;
-	for (i = 0, j = 0; i < refcount->count; i++) {
-		if (list[i].ea_value) {
-			if (i != j)
-				list[j] = list[i];
-			j++;
-		}
-	}
-#if defined(DEBUG) || defined(TEST_PROGRAM)
-	printf("Refcount_collapse: size was %zu, now %d\n",
-	       refcount->count, j);
-#endif
-	refcount->count = j;
-}
-
-
-/*
- * insert_refcount_el() --- Insert a new entry into the sorted list at a
- * 	specified position.
- */
-static struct ea_refcount_el *insert_refcount_el(ext2_refcount_t refcount,
-						 ea_key_t ea_key, int pos)
-{
-	struct ea_refcount_el 	*el;
-	errcode_t		retval;
-	size_t			new_size = 0;
-	int			num;
-
-	if (refcount->count >= refcount->size) {
-		new_size = refcount->size + 100;
-#ifdef DEBUG
-		printf("Reallocating refcount %zu entries...\n", new_size);
-#endif
-		retval = ext2fs_resize_mem((size_t) refcount->size *
-					   sizeof(struct ea_refcount_el),
-					   (size_t) new_size *
-					   sizeof(struct ea_refcount_el),
-					   &refcount->list);
-		if (retval)
-			return 0;
-		refcount->size = new_size;
-	}
-	num = (int) refcount->count - pos;
-	if (num < 0)
-		return 0;	/* should never happen */
-	if (num) {
-		memmove(&refcount->list[pos+1], &refcount->list[pos],
-			sizeof(struct ea_refcount_el) * num);
-	}
-	refcount->count++;
-	el = &refcount->list[pos];
-	el->ea_key = ea_key;
-	el->ea_value = 0;
-	return el;
-}
-
 
 /*
  * get_refcount_el() --- given an block number, try to find refcount
- * 	information in the sorted list.  If the create flag is set,
- * 	and we can't find an entry, create one in the sorted list.
+ * 	information in the rb-tree.  If the create flag is set,
+ * 	and we can't find an entry, create and add it to rb-tree.
  */
 static struct ea_refcount_el *get_refcount_el(ext2_refcount_t refcount,
 					      ea_key_t ea_key, int create)
 {
-	int	low, high, mid;
+	struct rb_node		**node;
+	struct rb_node		*parent = NULL;
+	struct ea_refcount_el	*el;
+	errcode_t		retval;
 
-	if (!refcount || !refcount->list)
-		return 0;
-retry:
-	low = 0;
-	high = (int) refcount->count-1;
-	if (create && ((refcount->count == 0) ||
-		       (ea_key > refcount->list[high].ea_key))) {
-		if (refcount->count >= refcount->size)
-			refcount_collapse(refcount);
-
-		return insert_refcount_el(refcount, ea_key,
-					  (unsigned) refcount->count);
-	}
-	if (refcount->count == 0)
+	if (!refcount)
 		return 0;
 
-	if (refcount->cursor >= refcount->count)
-		refcount->cursor = 0;
-	if (ea_key == refcount->list[refcount->cursor].ea_key)
-		return &refcount->list[refcount->cursor++];
-#ifdef DEBUG
-	printf("Non-cursor get_refcount_el: %llu\n", (unsigned long long) ea_key);
-#endif
-	while (low <= high) {
-		mid = (low+high)/2;
-		if (ea_key == refcount->list[mid].ea_key) {
-			refcount->cursor = mid+1;
-			return &refcount->list[mid];
-		}
-		if (ea_key < refcount->list[mid].ea_key)
-			high = mid-1;
+	node = &refcount->root.rb_node;
+	while (*node) {
+		el = ext2fs_rb_entry(*node, struct ea_refcount_el, node);
+
+		parent = *node;
+		if (ea_key < el->ea_key)
+			node = &(*node)->rb_left;
+		else if (ea_key > el->ea_key)
+			node = &(*node)->rb_right;
 		else
-			low = mid+1;
+			return el;
 	}
-	/*
-	 * If we need to create a new entry, it should be right at
-	 * low (where high will be left at low-1).
-	 */
-	if (create) {
-		if (refcount->count >= refcount->size) {
-			refcount_collapse(refcount);
-			if (refcount->count < refcount->size)
-				goto retry;
-		}
-		return insert_refcount_el(refcount, ea_key, low);
-	}
-	return 0;
+
+	if (!create)
+		return 0;
+
+	retval = ext2fs_get_memzero(sizeof(struct ea_refcount_el), &el);
+	if (retval)
+		return 0;
+
+	el->ea_key = ea_key;
+	el->ea_value = 0;
+	ext2fs_rb_link_node(&el->node, parent, node);
+	ext2fs_rb_insert_color(&el->node, &refcount->root);
+
+	return el;
 }
 
 errcode_t ea_refcount_fetch(ext2_refcount_t refcount, ea_key_t ea_key,
@@ -240,13 +147,18 @@ errcode_t ea_refcount_decrement(ext2_refcount_t refcount, ea_key_t ea_key,
 	struct ea_refcount_el	*el;
 
 	el = get_refcount_el(refcount, ea_key, 0);
-	if (!el || el->ea_value == 0)
+	if (!el)
 		return EXT2_ET_INVALID_ARGUMENT;
 
 	el->ea_value--;
 
 	if (ret)
 		*ret = el->ea_value;
+
+	if (el->ea_value == 0) {
+		ext2fs_rb_erase(&el->node, &refcount->root);
+		ext2fs_free_mem(&el);
+	}
 	return 0;
 }
 
@@ -262,15 +174,11 @@ errcode_t ea_refcount_store(ext2_refcount_t refcount, ea_key_t ea_key,
 	if (!el)
 		return ea_value ? EXT2_ET_NO_MEMORY : 0;
 	el->ea_value = ea_value;
+	if (el->ea_value == 0) {
+		ext2fs_rb_erase(&el->node, &refcount->root);
+		ext2fs_free_mem(&el);
+	}
 	return 0;
-}
-
-size_t ext2fs_get_refcount_size(ext2_refcount_t refcount)
-{
-	if (!refcount)
-		return 0;
-
-	return refcount->size;
 }
 
 void ea_refcount_intr_begin(ext2_refcount_t refcount)
@@ -281,19 +189,23 @@ void ea_refcount_intr_begin(ext2_refcount_t refcount)
 ea_key_t ea_refcount_intr_next(ext2_refcount_t refcount,
 				ea_value_t *ret)
 {
-	struct ea_refcount_el	*list;
+	struct ea_refcount_el	*el;
+	struct rb_node		*node = refcount->cursor;
 
-	while (1) {
-		if (refcount->cursor >= refcount->count)
-			return 0;
-		list = refcount->list;
-		if (list[refcount->cursor].ea_value) {
-			if (ret)
-				*ret = list[refcount->cursor].ea_value;
-			return list[refcount->cursor++].ea_key;
-		}
-		refcount->cursor++;
+	if (node == NULL)
+		node = ext2fs_rb_first(&refcount->root);
+	else
+		node = ext2fs_rb_next(node);
+
+	if (node) {
+		refcount->cursor = node;
+		el = ext2fs_rb_entry(node, struct ea_refcount_el, node);
+		if (ret)
+			*ret = el->ea_value;
+		return el->ea_key;
 	}
+
+	return 0;
 }
 
 
@@ -301,26 +213,28 @@ ea_key_t ea_refcount_intr_next(ext2_refcount_t refcount,
 
 errcode_t ea_refcount_validate(ext2_refcount_t refcount, FILE *out)
 {
-	errcode_t	ret = 0;
-	int		i;
+	struct ea_refcount_el	*el;
+	struct rb_node		*node;
+	ea_key_t		prev;
+	int			prev_valid = 0;
 	const char *bad = "bad refcount";
 
-	if (refcount->count > refcount->size) {
-		fprintf(out, "%s: count > size\n", bad);
-		return EXT2_ET_INVALID_ARGUMENT;
-	}
-	for (i=1; i < refcount->count; i++) {
-		if (refcount->list[i-1].ea_key >= refcount->list[i].ea_key) {
+	for (node = ext2fs_rb_first(&refcount->root); node != NULL;
+	     node = ext2fs_rb_next(node)) {
+		el = ext2fs_rb_entry(node, struct ea_refcount_el, node);
+		if (prev_valid && prev >= el->ea_key) {
 			fprintf(out,
-				"%s: list[%d].ea_key=%llu, list[%d].ea_key=%llu\n",
-				bad, i-1,
-				(unsigned long long) refcount->list[i-1].ea_key,
-				i,
-				(unsigned long long) refcount->list[i].ea_key);
-			ret = EXT2_ET_INVALID_ARGUMENT;
+				"%s: prev.ea_key=%llu, curr.ea_key=%llu\n",
+				bad,
+				(unsigned long long) prev,
+				(unsigned long long) el->ea_key);
+			return EXT2_ET_INVALID_ARGUMENT;
 		}
+		prev = el->ea_key;
+		prev_valid = 1;
 	}
-	return ret;
+
+	return 0;
 }
 
 #define BCODE_END	0
@@ -332,10 +246,9 @@ errcode_t ea_refcount_validate(ext2_refcount_t refcount, FILE *out)
 #define BCODE_FETCH	6
 #define BCODE_VALIDATE	7
 #define BCODE_LIST	8
-#define BCODE_COLLAPSE 9
 
 int bcode_program[] = {
-	BCODE_CREATE, 5,
+	BCODE_CREATE,
 	BCODE_STORE, 3, 3,
 	BCODE_STORE, 4, 4,
 	BCODE_STORE, 1, 1,
@@ -362,7 +275,6 @@ int bcode_program[] = {
 	BCODE_FETCH, 30,
 	BCODE_DECR, 2,
 	BCODE_DECR, 2,
-	BCODE_COLLAPSE,
 	BCODE_LIST,
 	BCODE_VALIDATE,
 	BCODE_FREE,
@@ -373,7 +285,6 @@ int main(int argc, char **argv)
 {
 	int	i = 0;
 	ext2_refcount_t refcount;
-	size_t		size;
 	ea_key_t	ea_key;
 	ea_value_t	arg;
 	errcode_t	retval;
@@ -383,15 +294,13 @@ int main(int argc, char **argv)
 		case BCODE_END:
 			exit(0);
 		case BCODE_CREATE:
-			size = bcode_program[i++];
-			retval = ea_refcount_create(size, &refcount);
+			retval = ea_refcount_create(&refcount);
 			if (retval) {
 				com_err("ea_refcount_create", retval,
-					"while creating size %zu", size);
+					"while creating refcount");
 				exit(1);
 			} else
-				printf("Creating refcount with size %zu\n",
-				       size);
+				printf("Creating refcount\n");
 			break;
 		case BCODE_FREE:
 			ea_refcount_free(refcount);
@@ -464,9 +373,6 @@ int main(int argc, char **argv)
 				       (unsigned long long) ea_key,
 				       (unsigned long long) arg);
 			}
-			break;
-		case BCODE_COLLAPSE:
-			refcount_collapse(refcount);
 			break;
 		}
 
