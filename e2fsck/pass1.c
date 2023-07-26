@@ -421,7 +421,7 @@ static problem_t check_large_ea_inode(e2fsck_t ctx,
 
 static int alloc_ea_inode_refs(e2fsck_t ctx, struct problem_context *pctx)
 {
-	pctx->errcode = ea_refcount_create(0, &ctx->ea_inode_refs);
+	pctx->errcode = ea_refcount_create(&ctx->ea_inode_refs);
 	if (pctx->errcode) {
 		pctx->num = 4;
 		fix_problem(ctx, PR_1_ALLOCATE_REFCOUNT, pctx);
@@ -3393,8 +3393,7 @@ static errcode_t e2fsck_pass1_merge_ea_refcount(e2fsck_t global_ctx,
 				continue;
 
 			if (!global_ctx->refcount_extra) {
-				retval = ea_refcount_create(0,
-						&global_ctx->refcount_extra);
+				retval = ea_refcount_create(&global_ctx->refcount_extra);
 				if (retval)
 					return retval;
 			}
@@ -3427,8 +3426,7 @@ static errcode_t e2fsck_pass1_merge_ea_refcount(e2fsck_t global_ctx,
 				return retval;
 			/* Ooops, this EA was referenced more than it stated */
 			if (!global_ctx->refcount_extra) {
-				retval = ea_refcount_create(0,
-						&global_ctx->refcount_extra);
+				retval = ea_refcount_create(&global_ctx->refcount_extra);
 				if (retval)
 					return retval;
 			}
@@ -4307,8 +4305,7 @@ static int check_ext_attr(e2fsck_t ctx, struct problem_context *pctx,
 
 	/* Create the EA refcount structure if necessary */
 	if (!ctx->refcount) {
-		pctx->errcode = ea_refcount_create(0,
-					&ctx->refcount_orig);
+		pctx->errcode = ea_refcount_create(&ctx->refcount_orig);
 		if (pctx->errcode) {
 			pctx->num = 1;
 			fix_problem(ctx, PR_1_ALLOCATE_REFCOUNT, pctx);
@@ -4316,7 +4313,7 @@ static int check_ext_attr(e2fsck_t ctx, struct problem_context *pctx,
 			return 0;
 		}
 
-		pctx->errcode = ea_refcount_create(0, &ctx->refcount);
+		pctx->errcode = ea_refcount_create(&ctx->refcount);
 		if (pctx->errcode) {
 			pctx->num = 1;
 			fix_problem(ctx, PR_1_ALLOCATE_REFCOUNT, pctx);
@@ -4350,8 +4347,7 @@ static int check_ext_attr(e2fsck_t ctx, struct problem_context *pctx,
 			return 1;
 		/* Ooops, this EA was referenced more than it stated */
 		if (!ctx->refcount_extra) {
-			pctx->errcode = ea_refcount_create(0,
-					   &ctx->refcount_extra);
+			pctx->errcode = ea_refcount_create(&ctx->refcount_extra);
 			if (pctx->errcode) {
 				pctx->num = 2;
 				fix_problem(ctx, PR_1_ALLOCATE_REFCOUNT, pctx);
@@ -4498,8 +4494,7 @@ static int check_ext_attr(e2fsck_t ctx, struct problem_context *pctx,
 
 	if (quota_blocks != EXT2FS_C2B(fs, 1U)) {
 		if (!ctx->ea_block_quota_blocks) {
-			pctx->errcode = ea_refcount_create(0,
-						&ctx->ea_block_quota_blocks);
+			pctx->errcode = ea_refcount_create(&ctx->ea_block_quota_blocks);
 			if (pctx->errcode) {
 				pctx->num = 3;
 				goto refcount_fail;
@@ -4511,8 +4506,7 @@ static int check_ext_attr(e2fsck_t ctx, struct problem_context *pctx,
 
 	if (quota_inodes) {
 		if (!ctx->ea_block_quota_inodes) {
-			pctx->errcode = ea_refcount_create(0,
-						&ctx->ea_block_quota_inodes);
+			pctx->errcode = ea_refcount_create(&ctx->ea_block_quota_inodes);
 			if (pctx->errcode) {
 				pctx->num = 4;
 refcount_fail:
