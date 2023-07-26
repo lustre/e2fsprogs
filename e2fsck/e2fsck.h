@@ -661,7 +661,7 @@ typedef __u64 ea_value_t;
  */
 #define EA_INODE_NO_REFS (~(ea_value_t)0)
 
-extern errcode_t ea_refcount_create(size_t size, ext2_refcount_t *ret);
+extern errcode_t ea_refcount_create(ext2_refcount_t *ret);
 extern void ea_refcount_free(ext2_refcount_t refcount);
 extern errcode_t ea_refcount_fetch(ext2_refcount_t refcount, ea_key_t ea_key,
 				   ea_value_t *ret);
@@ -671,7 +671,6 @@ extern errcode_t ea_refcount_decrement(ext2_refcount_t refcount,
 				       ea_key_t ea_key, ea_value_t *ret);
 extern errcode_t ea_refcount_store(ext2_refcount_t refcount, ea_key_t ea_key,
 				   ea_value_t count);
-extern size_t ext2fs_get_refcount_size(ext2_refcount_t refcount);
 extern void ea_refcount_intr_begin(ext2_refcount_t refcount);
 extern ea_key_t ea_refcount_intr_next(ext2_refcount_t refcount,
 				      ea_value_t *ret);
