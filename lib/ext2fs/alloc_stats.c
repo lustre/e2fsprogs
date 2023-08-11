@@ -70,10 +70,12 @@ void ext2fs_block_alloc_stats2(ext2_filsys fs, blk64_t blk, int inuse)
 #endif
 		return;
 	}
-	if (inuse > 0)
+	if (inuse > 0) {
 		ext2fs_mark_block_bitmap2(fs->block_map, blk);
-	else
+	} else {
 		ext2fs_unmark_block_bitmap2(fs->block_map, blk);
+		ext2fs_bg_flags_clear(fs, group, EXT2_BG_TRIMMED);
+	}
 	ext2fs_bg_free_blocks_count_set(fs, group, ext2fs_bg_free_blocks_count(fs, group) - inuse);
 	ext2fs_bg_flags_clear(fs, group, EXT2_BG_BLOCK_UNINIT);
 	ext2fs_group_desc_csum_set(fs, group);
@@ -139,6 +141,8 @@ void ext2fs_block_alloc_stats_range(ext2_filsys fs, blk64_t blk,
 			ext2fs_bg_free_blocks_count(fs, group) -
 			inuse*n/EXT2FS_CLUSTER_RATIO(fs));
 		ext2fs_bg_flags_clear(fs, group, EXT2_BG_BLOCK_UNINIT);
+		if (inuse < 0)
+			ext2fs_bg_flags_clear(fs, group, EXT2_BG_TRIMMED);
 		ext2fs_group_desc_csum_set(fs, group);
 		ext2fs_free_blocks_count_add(fs->super, -inuse * (blk64_t) n);
 		blk += n;
