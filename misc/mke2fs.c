@@ -67,8 +67,6 @@ extern int optind;
 #define ZAP_BOOTBLOCK
 #endif
 
-#define DISCARD_STEP_MB		(2048)
-
 extern int isatty(int);
 extern FILE *fpopen(const char *cmd, const char *mode);
 
@@ -2985,9 +2983,7 @@ err:
 static int mke2fs_discard_device(ext2_filsys fs)
 {
 	struct ext2fs_numeric_progress_struct progress;
-	blk64_t blocks = ext2fs_blocks_count(fs->super);
-	blk64_t count = DISCARD_STEP_MB;
-	blk64_t cur = 0;
+	dgrp_t group;
 	int retval = 0;
 
 	/*
@@ -2999,22 +2995,26 @@ static int mke2fs_discard_device(ext2_filsys fs)
 	if (retval)
 		return retval;
 
-	count *= (1024 * 1024);
-	count /= fs->blocksize;
-
 	ext2fs_numeric_progress_init(fs, &progress,
 				     _("Discarding device blocks: "),
-				     blocks);
-	while (cur < blocks) {
-		ext2fs_numeric_progress_update(fs, &progress, cur);
+				     ext2fs_blocks_count(fs->super));
 
-		if (cur + count > blocks)
-			count = blocks - cur;
+	for (group = 0; group < fs->group_desc_count; group++) {
+		blk64_t start = ext2fs_group_first_block2(fs, group);
+		blk64_t count = ext2fs_group_blocks_count(fs, group);
+		int retval_discard = 0;
 
-		retval = io_channel_discard(fs->io, cur, count);
-		if (retval)
-			break;
-		cur += count;
+		retval_discard = io_channel_discard(fs->io, start, count);
+		if (!retval_discard) {
+			ext2fs_bg_flags_set(fs, group, EXT2_BG_TRIMMED);
+			ext2fs_group_desc_csum_set(fs, group);
+			fs->super->s_flags |= EXT2_FLAGS_TRACK_TRIM;
+		} else if (!retval) {
+			retval = retval_discard;
+		}
+
+		ext2fs_numeric_progress_update(fs, &progress,
+					ext2fs_group_last_block2(fs, group));
 	}
 
 	if (retval) {
