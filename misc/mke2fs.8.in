@@ -295,6 +295,11 @@ and before write returns zero), then mark all not-yet-zeroed inode tables as
 zeroed. This significantly speeds up file system initialization. This is set
 as default.
 .TP
+.B track_trim
+Set a flag in the file system superblock to make fstrim save the trim status
+in each block group and skip the block groups already been trimmed. This is set
+as default.
+.TP
 .BI encoding= encoding-name
 Enable the
 .I casefold
@@ -347,8 +352,12 @@ of 0 means to use the default interval.  The specified interval must
 be less than 300 seconds.  Requires that the
 .B mmp
 feature be enabled.
+.TP
 .B nodiscard
 Do not attempt to discard blocks at mkfs time.
+.TP
+.B no_track_trim
+Do not set track_trim flag in the superblock.
 .TP
 .B no_copy_xattrs
 Normally

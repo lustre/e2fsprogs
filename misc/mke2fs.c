@@ -70,8 +70,6 @@ extern int optind;
 #define ZAP_BOOTBLOCK
 #endif
 
-#define DISCARD_STEP_MB		(2048)
-
 extern int isatty(int);
 extern FILE *fpopen(const char *cmd, const char *mode);
 
@@ -84,6 +82,7 @@ int	verbose;
 int	quiet;
 static int	super_only;
 static int	discard = 1;	/* attempt to discard device before fs creation */
+static int	track_trim = 1;
 static int	direct_io;
 static int	force;
 static int	noaction;
@@ -1093,6 +1092,10 @@ static void parse_extended_opts(struct ext2_super_block *param,
 			discard = 1;
 		} else if (!strcmp(token, "nodiscard")) {
 			discard = 0;
+		} else if (!strcmp(token, "track_trim")) {
+			track_trim = 1;
+		} else if (!strcmp(token, "no_track_trim")) {
+			track_trim = 0;
 		} else if (!strcmp(token, "quotatype")) {
 			char *errtok = NULL;
 
@@ -1232,6 +1235,8 @@ static void parse_extended_opts(struct ext2_super_block *param,
 			"\ttest_fs\n"
 			"\tdiscard\n"
 			"\tnodiscard\n"
+			"\ttrack_trim\n"
+			"\tno_track_trim\n"
 			"\trevision=<revision>\n"
 			"\tencoding=<encoding>\n"
 			"\tencoding_flags=<flags>\n"
@@ -2637,6 +2642,7 @@ profile_error:
 						 "lazy_itable_init",
 						 lazy_itable_init);
 	discard = get_bool_from_profile(fs_types, "discard" , discard);
+	track_trim = get_bool_from_profile(fs_types, "track_trim", track_trim);
 	journal_flags |= get_bool_from_profile(fs_types,
 					       "lazy_journal_init", 0) ?
 					       EXT2_MKJOURNAL_LAZYINIT : 0;
@@ -3068,9 +3074,7 @@ err:
 static int mke2fs_discard_device(ext2_filsys fs)
 {
 	struct ext2fs_numeric_progress_struct progress;
-	blk64_t blocks = ext2fs_blocks_count(fs->super);
-	blk64_t count = DISCARD_STEP_MB;
-	blk64_t cur = 0;
+	dgrp_t group;
 	int retval = 0;
 
 	/*
@@ -3082,22 +3086,25 @@ static int mke2fs_discard_device(ext2_filsys fs)
 	if (retval)
 		return retval;
 
-	count *= (1024 * 1024);
-	count /= fs->blocksize;
-
 	ext2fs_numeric_progress_init(fs, &progress,
 				     _("Discarding device blocks: "),
-				     blocks);
-	while (cur < blocks) {
-		ext2fs_numeric_progress_update(fs, &progress, cur);
+				     ext2fs_blocks_count(fs->super));
 
-		if (cur + count > blocks)
-			count = blocks - cur;
+	for (group = 0; group < fs->group_desc_count; group++) {
+		blk64_t start = ext2fs_group_first_block2(fs, group);
+		blk64_t count = ext2fs_group_blocks_count(fs, group);
+		int retval_discard = 0;
 
-		retval = io_channel_discard(fs->io, cur, count);
-		if (retval)
-			break;
-		cur += count;
+		retval_discard = io_channel_discard(fs->io, start, count);
+		if (!retval_discard) {
+			ext2fs_bg_flags_set(fs, group, EXT2_BG_TRIMMED);
+			ext2fs_group_desc_csum_set(fs, group);
+		} else if (!retval) {
+			retval = retval_discard;
+		}
+
+		ext2fs_numeric_progress_update(fs, &progress,
+					ext2fs_group_last_block2(fs, group));
 	}
 
 	if (retval) {
@@ -3383,6 +3390,9 @@ int main (int argc, char *argv[])
 			zero_hugefile = 0;
 		}
 	}
+
+	if (track_trim)
+		fs->super->s_flags |= EXT2_FLAGS_TRACK_TRIM;
 
 	if (fs_param.s_flags & EXT2_FLAGS_TEST_FILESYS)
 		fs->super->s_flags |= EXT2_FLAGS_TEST_FILESYS;

@@ -2452,6 +2452,14 @@ static int parse_extended_opts(ext2_filsys fs, const char *opts)
 			sb->s_flags &= ~EXT2_FLAGS_TEST_FILESYS;
 			printf("Clearing test filesystem flag\n");
 			ext2fs_mark_super_dirty(fs);
+		} else if (!strcmp(token, "track_trim")) {
+			sb->s_flags |= EXT2_FLAGS_TRACK_TRIM;
+			printf("Setting track_trim flag\n");
+			ext2fs_mark_super_dirty(fs);
+		} else if (!strcmp(token, "^track_trim")) {
+			sb->s_flags &= ~EXT2_FLAGS_TRACK_TRIM;
+			printf("Clearing track_trim flag\n");
+			ext2fs_mark_super_dirty(fs);
 		} else if (strcmp(token, "stride") == 0) {
 			if (!arg) {
 				r_usage++;
@@ -2649,6 +2657,8 @@ static int parse_extended_opts(ext2_filsys fs, const char *opts)
 			"\tiops=[^]<iops storage size range>\n"
 			"\ttest_fs\n"
 			"\t^test_fs\n"
+			"\ttrack_trim\n"
+			"\t^track_trim\n"
 			"\tencoding=<encoding>\n"
 			"\tencoding_flags=<flags>\n"));
 		free(buf);
