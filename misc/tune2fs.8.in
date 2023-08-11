@@ -282,6 +282,14 @@ mounted using experimental kernel code, such as the ext4dev file system.
 .B ^test_fs
 Clear the test_fs flag, indicating the file system should only be mounted
 using production-level file system code.
+.TP
+.B track_trim
+Set a flag in the file system superblock to make fstrim save the trim status
+in each block group and skip the block groups already been trimmed.
+.TP
+.B ^track_trim
+Clear the track_trim flag to make fstrim ignore the trim status saved in
+each block group, and trim every block group.
 .RE
 .TP
 .B \-f
