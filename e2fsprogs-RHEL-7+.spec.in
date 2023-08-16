@@ -21,6 +21,10 @@ Obsoletes: e4fsprogs < %{version}-%{release}
 Provides: e4fsprogs = %{version}-%{release}
 %endif
 
+%if 0%{?openEuler}
+Obsoletes: e2fsprogs-help < %{version}
+%endif
+
 BuildRequires: pkgconfig, texinfo, libselinux-devel, gcc
 BuildRequires: libsepol-devel
 BuildRequires: libblkid-devel
