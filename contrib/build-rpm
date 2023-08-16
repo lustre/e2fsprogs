@@ -74,7 +74,7 @@ if [ -z "$RELEASE" ]; then
 fi
 case "$DISTRO-$RELEASE" in
     AlmaLinux*) DISTRO=RHEL; RELEASE=7+;;
-    openEuler-2[2-9]*) DISTRO=RHEL; RELEASE=7+;;
+    openEuler-2[0-9]*) DISTRO=RHEL; RELEASE=7+;;
     RedHatEnterpriseServer-6*|CentOS-6*|Fedora-1[1-4]) DISTRO=RHEL; RELEASE=6;;
     RedHatEnterprise*|Fedora*|CentOS*) DISTRO=RHEL; RELEASE=7+;;
     Rocky*) DISTRO=RHEL; RELEASE=7+;;
