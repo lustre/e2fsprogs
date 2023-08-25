@@ -1643,6 +1643,8 @@ extern errcode_t ext2fs_initialize(const char *name, int flags,
 				   struct ext2_super_block *param,
 				   io_manager manager, ext2_filsys *ret_fs);
 extern errcode_t ext2fs_calculate_summary_stats(ext2_filsys fs, int super_only);
+extern void ext2fs_set_iops_group(ext2_filsys fs, blk64_t *array, int count);
+extern void ext2fs_clear_iops_group(ext2_filsys fs, blk64_t *array, int count);
 
 /* icount.c */
 extern void ext2fs_free_icount(ext2_icount_t icount);
