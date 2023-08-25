@@ -688,3 +688,40 @@ errcode_t ext2fs_calculate_summary_stats(ext2_filsys fs, int super_only)
 	ext2fs_mark_super_dirty(fs);
 	return 0;
 }
+
+static void ext2fs_set_clear_iops_group(ext2_filsys fs, blk64_t *array,
+					int count, int set)
+{
+	int i;
+	dgrp_t j, start, end;
+
+	if (!array || !count)
+		return;
+
+	for (i = 0; i < count; i += 2) {
+		start = ext2fs_div64_ceil(ext2fs_div64_ceil(array[i],
+							    fs->blocksize),
+					  EXT2_BLOCKS_PER_GROUP(fs->super));
+		end = ext2fs_div64_ceil(ext2fs_div64_ceil(array[i + 1],
+							  fs->blocksize),
+					EXT2_BLOCKS_PER_GROUP(fs->super));
+
+		for (j = start; j < end; j++) {
+			if (set)
+				ext2fs_bg_flags_set(fs, j, EXT2_BG_IOPS);
+			else
+				ext2fs_bg_flags_clear(fs, j, EXT2_BG_IOPS);
+			ext2fs_group_desc_csum_set(fs, j);
+		}
+	}
+}
+
+void ext2fs_set_iops_group(ext2_filsys fs, blk64_t *array, int count)
+{
+	ext2fs_set_clear_iops_group(fs, array, count, 1);
+}
+
+void ext2fs_clear_iops_group(ext2_filsys fs, blk64_t *array, int count)
+{
+	ext2fs_set_clear_iops_group(fs, array, count, 0);
+}
