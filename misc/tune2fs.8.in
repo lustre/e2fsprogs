@@ -266,6 +266,15 @@ a few blocks per cpu is ideal.
 Set a flag in the file system superblock indicating that errors have been found.
 This will force fsck to run at the next mount.
 .TP
+.BI iops= [^]<size_range>[:[^]<size_range>][...]
+Specify or clear IOPS block group \fIsize_range\fR like:
+.B iops=0-1024G:^4096-8192G
+So the file system can get the knowledge that block groups in 0 to 1024GiB
+are on a relatively faster storage and those in 4096 to 8192GiB are not on
+a faster storage, which allows the kernel block allocator to optimize metadata
+allocations onto high-IOPS storage for a hybrid flash/HDD devices for better
+performance.
+.TP
 .B test_fs
 Set a flag in the file system superblock indicating that it may be
 mounted using experimental kernel code, such as the ext4dev file system.
