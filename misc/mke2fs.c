@@ -3208,29 +3208,6 @@ try_user:
 	return 0;
 }
 
-static void ext2fs_set_iops_group(ext2_filsys fs, blk64_t *array, int count)
-{
-	int i;
-	dgrp_t j, start, end;
-
-	if (!array || !count)
-		return;
-
-	for (i = 0; i < count; i += 2) {
-		start = ext2fs_div64_ceil(ext2fs_div64_ceil(array[i],
-							    fs->blocksize),
-					  EXT2_BLOCKS_PER_GROUP(fs->super));
-		end = ext2fs_div64_ceil(ext2fs_div64_ceil(array[i + 1],
-							  fs->blocksize),
-					EXT2_BLOCKS_PER_GROUP(fs->super));
-
-		for (j = start; j < end; j++) {
-			ext2fs_bg_flags_set(fs, j, EXT2_BG_IOPS);
-			ext2fs_group_desc_csum_set(fs, j);
-		}
-	}
-}
-
 int main (int argc, char *argv[])
 {
 	errcode_t	retval = 0;

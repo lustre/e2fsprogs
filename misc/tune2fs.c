@@ -52,6 +52,7 @@ extern int optind;
 #include <sys/types.h>
 #include <libgen.h>
 #include <limits.h>	/* for PATH_MAX */
+#include <ctype.h>
 #ifdef HAVE_SYS_IOCTL_H
 #include <sys/ioctl.h>
 #endif
@@ -133,6 +134,14 @@ static int feature_64bit;
 static int fsck_requested;
 static char *undo_file;
 int enabling_casefold;
+blk64_t iops_array[64];
+blk64_t *iops_range = iops_array;
+unsigned int iops_size = sizeof(iops_array);
+unsigned int iops_count = 0;
+blk64_t n_iops_array[64];
+blk64_t *n_iops_range = n_iops_array;
+unsigned int n_iops_size = sizeof(n_iops_array);
+unsigned int n_iops_count = 0;
 
 int journal_size, journal_fc_size, journal_flags;
 char *journal_device;
@@ -2286,6 +2295,88 @@ void do_findfs(int argc, char **argv)
 }
 #endif
 
+static int parse_range(char *p_start, char *p_end, char *p_hyphen)
+{
+	blk64_t start, end;
+	blk64_t *new_array, *n_new_array;
+	int negative = 0;
+
+	/**
+	 * e.g. ^0-1024G
+	 *       ^      ^
+	 *       |      |
+	 *    p_start  p_end
+	 */
+	if (*p_start == '^') {
+		negative = 1;
+		p_start++;
+	}
+	end = parse_num_blocks(p_hyphen + 1, -1);
+
+	if (isalpha(*(p_end - 1)) && isdigit(*(p_hyphen - 1))) {
+		/* copy G/M/K unit to start value */
+		*p_hyphen = *(p_end - 1);
+		p_hyphen++;
+	}
+	*p_hyphen = 0;
+
+	start = parse_num_blocks(p_start, -1);
+
+	/* add to iops_range/n_iops_range */
+        if ((negative && (n_iops_count == n_iops_size)) ||
+	    (!negative && (iops_count == iops_size))) {
+		if (negative) {
+			n_iops_size <<= 1;
+			if (n_iops_size == 0) {
+				n_iops_size = n_iops_count;
+				return -E2BIG;
+			}
+		} else {
+			iops_size <<= 1;
+			if (iops_size == 0) {
+				iops_size = iops_count;
+				return -E2BIG;
+			}
+		}
+		if (negative) {
+			if (n_iops_range == n_iops_array)
+				n_new_array = malloc(n_iops_size *
+						     sizeof(blk64_t));
+			else
+				n_new_array = realloc(n_iops_range,
+						n_iops_size * sizeof(blk64_t));
+			if (!n_new_array) {
+				n_iops_size >>= 1;
+				return -ENOMEM;
+			} else {
+				n_iops_range = n_new_array;
+			}
+		} else {
+			if (iops_range == iops_array)
+				new_array = malloc(iops_size * sizeof(blk64_t));
+			else
+				new_array = realloc(iops_range,
+						iops_size * sizeof(blk64_t));
+			if (!new_array) {
+				iops_size >>= 1;
+				return -ENOMEM;
+			} else {
+				iops_range = new_array;
+			}
+		}
+	}
+
+	if (negative) {
+		n_iops_range[n_iops_count++] = start;
+		n_iops_range[n_iops_count++] = end;
+	} else {
+		iops_range[iops_count++] = start;
+		iops_range[iops_count++] = end;
+	}
+
+	return 0;
+}
+
 static int parse_extended_opts(ext2_filsys fs, const char *opts)
 {
 	struct ext2_super_block *sb = fs->super;
@@ -2294,6 +2385,7 @@ static int parse_extended_opts(ext2_filsys fs, const char *opts)
 	int	r_usage = 0;
 	int encoding = 0;
 	char	*encoding_flags = NULL;
+	int ret;
 
 	len = strlen(opts);
 	buf = malloc(len+1);
@@ -2467,6 +2559,56 @@ static int parse_extended_opts(ext2_filsys fs, const char *opts)
 				r_usage++;
 				continue;
 			}
+		} else if (!strcmp(token, "iops")) {
+			char *p_colon, *p_hyphen;
+
+			/* example: iops=0-1024G:4096-8192G */
+
+			if (!arg) {
+				r_usage++;
+				continue;
+			}
+			p_colon = strchr(arg, ':');
+			while (p_colon != NULL) {
+				*p_colon = 0;
+
+				p_hyphen = strchr(arg, '-');
+				if (p_hyphen == NULL) {
+					fprintf(stderr,
+						_("error: parse iops %s\n"),
+						arg);
+					r_usage++;
+					break;
+				}
+
+				ret = parse_range(arg, p_colon, p_hyphen);
+				if (ret < 0) {
+					fprintf(stderr,
+						_("error: parse iops %s:%d\n"),
+						arg, ret);
+					r_usage++;
+					break;
+				}
+
+				arg = p_colon + 1;
+				p_colon = strchr(arg, ':');
+			}
+			p_hyphen = strchr(arg, '-');
+			if (p_hyphen == NULL) {
+				fprintf(stderr,
+					_("error: parse iops %s\n"), arg);
+				r_usage++;
+				continue;
+			}
+
+			ret = parse_range(arg, arg + strlen(arg), p_hyphen);
+			if (ret < 0) {
+				fprintf(stderr,
+					_("error: parse iops %s:%d\n"),
+					arg, ret);
+				r_usage++;
+				continue;
+			}
 		} else
 			r_usage++;
 	}
@@ -2504,11 +2646,16 @@ static int parse_extended_opts(ext2_filsys fs, const char *opts)
 			"\tstride=<RAID per-disk chunk size in blocks>\n"
 			"\tstripe_width=<RAID stride*data disks in blocks>\n"
 			"\tforce_fsck\n"
+			"\tiops=[^]<iops storage size range>\n"
 			"\ttest_fs\n"
 			"\t^test_fs\n"
 			"\tencoding=<encoding>\n"
 			"\tencoding_flags=<flags>\n"));
 		free(buf);
+		if (iops_range != iops_array)
+			free(iops_range);
+		if (n_iops_range != n_iops_array)
+			free(n_iops_range);
 		return 1;
 	}
 	free(buf);
@@ -3565,6 +3712,22 @@ _("Warning: The journal is dirty. You may wish to replay the journal like:\n\n"
 			rc = 1;
 			goto closefs;
 		}
+	}
+
+	if ((iops_range && iops_count) || (n_iops_range && n_iops_count)) {
+		if (iops_count) {
+			ext2fs_set_iops_group(fs, iops_range, iops_count);
+			sb->s_flags |= EXT2_FLAGS_HAS_IOPS;
+		}
+		if (n_iops_count)
+			ext2fs_clear_iops_group(fs, n_iops_range, n_iops_count);
+		fs->flags &= ~EXT2_FLAG_SUPER_ONLY;
+		ext2fs_mark_super_dirty(fs);
+
+		if (iops_range != iops_array)
+			free(iops_range);
+		if (n_iops_range != n_iops_array)
+			free(n_iops_range);
 	}
 
 	if (Q_flag) {
