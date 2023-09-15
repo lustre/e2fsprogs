@@ -181,11 +181,14 @@ request do_set_current_time, "Set current time to use when setting filesystem fi
 request do_supported_features, "Print features supported by this version of e2fsprogs",
 	supported_features;
 
+request do_clear_mmp, "Reset MMP block",
+	clear_mmp, mmp_clear;
+
 request do_dump_mmp, "Dump MMP information",
-	dump_mmp;
+	dump_mmp, mmp_dump;
 
 request do_set_mmp_value, "Set MMP value",
-	set_mmp_value, smmp;
+	set_mmp_value, smmp, mmp_set_value;
 
 request do_extent_open, "Open inode for extent manipulation",
 	extent_open, eo;

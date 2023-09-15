@@ -8,7 +8,7 @@ debugfs \- ext2/ext3/ext4 file system debugger
 .SH SYNOPSIS
 .B debugfs
 [
-.B \-DVwcin
+.B \-cDimnwV
 ]
 [
 .B \-b
@@ -55,6 +55,20 @@ Without this option, the file system is opened in read-only mode.
 Disables metadata checksum verification.  This should only be used if
 you believe the metadata to be correct despite the complaints of
 e2fsprogs.
+.TP
+.I \-m
+Disables MMP status verification on open.  This should only be used if
+you are positive that the filesystem is not in use by another node and
+no other
+.BR e2fsck ,
+.BR tune2fs ,
+.BR debugfs ,
+.BR FUSE ,
+or other program or system is currently accessing it.  Run
+.B "dump_mmp"
+with the filesystem opened read-only, or
+.BI "e2mmpstatus -i" " device"
+to check the current MMP status for the filesystem.
 .TP
 .I \-c
 Specifies that the file system should be opened in catastrophic mode, in
@@ -231,6 +245,13 @@ master superblock.
 .BI clri " filespec"
 Clear the contents of the inode
 .IR filespec .
+.TP
+.BI clear_mmp
+Reset the contents of the filesystem multi-mount protection block.
+Use with caution, as this may result in severe filesystem corruption if
+it is currently in use on another node or if e2fsck is running.  Use
+.B \-m
+to override the MMP check at open if debugfs reports is e2fsck being run.
 .TP
 .BI copy_inode " source_inode destination_inode"
 Copy the contents of the inode structure in
@@ -646,7 +667,7 @@ to those inodes.  The
 flag will enable checking the file type information in the directory
 entry to make sure it matches the inode's type.
 .TP
-.BI open " [\-weficD] [\-b blocksize] [\-d image_filename] [\-s superblock] [\-z undo_file] device"
+.BI open " [\-cDefimw] [\-b blocksize] [\-d image_filename] [\-s superblock] [\-z undo_file] device"
 Open a file system for editing.  The
 .I \-f
 flag forces the file system to be opened even if there are some unknown
@@ -654,7 +675,7 @@ or incompatible file system features which would normally
 prevent the file system from being opened.  The
 .I \-e
 flag causes the file system to be opened in exclusive mode.  The
-.IR \-b ", " \-c ", " \-d ", " \-i ", " \-s ", " \-w ", and " \-D
+.IR \-b ", " \-c ", " \-d ", " \-i ", " \-m ", " \-s ", " \-w ", and " \-D
 options behave the same as the command-line options to
 .BR debugfs .
 .TP
