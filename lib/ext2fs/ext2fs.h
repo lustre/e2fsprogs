@@ -2286,6 +2286,30 @@ _INLINE_ struct ext2_dx_root_info *get_ext2_dx_root_info(ext2_filsys fs,
 	return (struct ext2_dx_root_info *)de;
 }
 
+_INLINE_ int ext2fs_log2(unsigned long long arg)
+{
+	int l = 0;
+
+	arg >>= 1;
+	while (arg) {
+		l++;
+		arg >>= 1;
+	}
+	return l;
+}
+
+_INLINE_ int ext2fs_log10(unsigned long long arg)
+{
+	int l = 0;
+
+	arg /= 10;
+	while (arg) {
+		l++;
+		arg /= 10;
+	}
+	return l;
+}
+
 /*
  * This is an efficient, overflow safe way of calculating ceil((1.0 * a) / b)
  */
