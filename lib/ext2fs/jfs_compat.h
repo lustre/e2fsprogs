@@ -59,6 +59,7 @@ typedef __u64 u64;
 
 #define blkdev_issue_flush(kdev)	sync_blockdev(kdev)
 #define is_power_of_2(x)	((x) != 0 && (((x) & ((x) - 1)) == 0))
+#define roundup_power_of_two(n)		(1UL << (ext2fs_log2((n) - 1) + 1))
 #define pr_emerg(fmt)
 #define pr_err(...)
 
