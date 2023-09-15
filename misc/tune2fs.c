@@ -2392,7 +2392,9 @@ static int parse_extended_opts(ext2_filsys fs, const char *opts)
 			arg++;
 		}
 		if (strcmp(token, "clear-mmp") == 0 ||
-		    strcmp(token, "clear_mmp") == 0) {
+		    strcmp(token, "clear_mmp") == 0 ||
+		    strcmp(token, "mmp-clear") == 0 ||
+		    strcmp(token, "mmp_clear") == 0) {
 			clear_mmp = 1;
 		} else if (strcmp(token, "mmp_update_interval") == 0) {
 			unsigned long intv;

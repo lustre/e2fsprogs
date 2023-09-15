@@ -235,7 +235,7 @@ void do_open_filesys(int argc, ss_argv_t argv, int sci_idx EXT2FS_ATTR((unused))
 	char	*undo_file = NULL;
 
 	reset_getopt();
-	while ((c = getopt(argc, argv, "iwfecb:s:d:Dz:")) != EOF) {
+	while ((c = getopt(argc, argv, "b:cd:Defims:wz:")) != EOF) {
 		switch (c) {
 		case 'i':
 			open_flags |= EXT2_FLAG_IMAGE_FILE;
@@ -268,6 +268,9 @@ void do_open_filesys(int argc, ss_argv_t argv, int sci_idx EXT2FS_ATTR((unused))
 			if (err)
 				return;
 			break;
+		case 'm':
+			open_flags |= EXT2_FLAG_SKIP_MMP;
+			break;
 		case 's':
 			err = strtoblk(argv[0], optarg,
 				       "superblock block number", &superblock);
@@ -298,9 +301,9 @@ void do_open_filesys(int argc, ss_argv_t argv, int sci_idx EXT2FS_ATTR((unused))
 print_usage:
 	fprintf(stderr, "%s: Usage: open [-s superblock] [-b blocksize] "
 #ifdef READ_ONLY
-		"[-d image_filename] [-z undo_file] [-c] [-i] [-f] [-e] [-D] "
+		"[-d image_filename] [-z undo_file] [-cDefim] "
 #else
-		"[-d image_filename] [-c] [-i] [-f] [-e] [-D] [-w] "
+		"[-d image_filename] [-cDefimw] "
 #endif
 		"<device>\n", argv[0]);
 }
@@ -2486,6 +2489,20 @@ void do_dump_mmp(int argc EXT2FS_ATTR((unused)), ss_argv_t argv,
 	fprintf(stdout, "magic: 0x%x\n", mmp_s->mmp_magic);
 	fprintf(stdout, "checksum: 0x%08x\n", mmp_s->mmp_checksum);
 }
+
+void do_clear_mmp(int argc EXT2FS_ATTR((unused)), char *argv[],
+		  int sci_idx EXT2FS_ATTR((unused)),
+		  void *infop EXT2FS_ATTR((unused)))
+{
+	errcode_t retval = 0;
+
+	if (check_fs_open(argv[0]))
+		return;
+
+	retval = ext2fs_mmp_clear(current_fs);
+	if (retval)
+		com_err(argv[0], retval, "Error clearing MMP block.\n");
+}
 #else
 void do_dump_mmp(int argc EXT2FS_ATTR((unused)),
 		 ss_argv_t argv EXT2FS_ATTR((unused)),
@@ -2494,6 +2511,14 @@ void do_dump_mmp(int argc EXT2FS_ATTR((unused)),
 {
 	fprintf(stdout, "MMP is unsupported, please recompile with "
 	                "--enable-mmp\n");
+}
+
+void do_clear_mmp(int argc EXT2FS_ATTR((unused)),
+		 char *argv[] EXT2FS_ATTR((unused)),
+		 int sci_idx EXT2FS_ATTR((unused)),
+		 void *infop EXT2FS_ATTR((unused)))
+{
+	do_dump_mmp(argc, argv, sci_idx, infop);
 }
 #endif
 
@@ -2550,7 +2575,7 @@ int main(int argc, char **argv)
 		"Usage: %s [-b blocksize] [-s superblock] [-f cmd_file] "
 		"[-R request] [-d data_source_device] [-i] [-n] [-D] [-V] ["
 #ifndef READ_ONLY
-		"[-w] [-z undo_file] "
+		"[-m] [-w] [-z undo_file] "
 #endif
 		"[-c]] [device]";
 	int		c;
@@ -2564,9 +2589,9 @@ int main(int argc, char **argv)
 	int		catastrophic = 0;
 	char		*data_filename = 0;
 #ifdef READ_ONLY
-	const char	*opt_string = "nicR:f:b:s:Vd:D";
+	const char	*opt_string = "b:cd:Df:inR:s:V";
 #else
-	const char	*opt_string = "niwcR:f:b:s:Vd:Dz:";
+	const char	*opt_string = "b:cd:Df:imnR:s:Vwz:";
 #endif
 	char		*undo_file = NULL;
 #ifdef CONFIG_JBD_DEBUG
@@ -2609,6 +2634,9 @@ int main(int argc, char **argv)
 			break;
 		case 'i':
 			open_flags |= EXT2_FLAG_IMAGE_FILE;
+			break;
+		case 'm':
+			open_flags |= EXT2_FLAG_SKIP_MMP;
 			break;
 		case 'n':
 			open_flags |= EXT2_FLAG_IGNORE_CSUM_ERRORS;
