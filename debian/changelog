@@ -1,3 +1,20 @@
+e2fsprogs (1.47.0-wc5) unstable; urgency=medium
+
+  * journal: increase revoke block hash size
+  * misc: deduplicate log2/log10 functions
+  * mke2fs: try to pack the GDT blocks together
+  * mke2fs: do not set the BLOCK_UNINIT on groups has GDT
+  * mke2fs: set free blocks accurately for groups has GDT
+  * debugfs: allow debugfs to disable MMP directly
+  * mke2fs: batch zeroing inode table
+  * e2fsck: check all sparse_super backups
+  * tune2fs: add "-E iops" to set/clear IOPS groups
+  * build: add support for openEuler 20.03 LTS
+  * e2fsck: improve parallel thread balance
+  * e2fsprogs: support EXT2_FLAG_BG_TRIMMED and EXT2_FLAGS_TRACK_TRIM
+
+ -- Dongyang Li <dongyangli@ddn.com>  Wed, 27 Sep 2023 11:42:27 +1100
+
 e2fsprogs (1.47.0-wc4) unstable; urgency=medium
 
   * mke2fs: add "-E iops" to set IOPS storage group
