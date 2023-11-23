@@ -10,48 +10,44 @@ if test "$(id -u)" -ne 0 ; then
 elif ! command -v losetup >/dev/null ; then
     echo "$test_name: $test_description: skipped (no losetup)"
 else
-    dd if=/dev/zero of=$TMPFILE.1 bs=1 count=0 seek=$FILE_SIZE >> $LOG 2>&1
-    dd if=/dev/zero of=$TMPFILE.2 bs=1 count=0 seek=$FILE_SIZE >> $LOG 2>&1
+    dd if=/dev/zero of=$TMPFILE bs=1 count=0 seek=$FILE_SIZE >> $LOG 2>&1
 
-    LOOP1=$(losetup --show --sector-size 4096 -f $TMPFILE.1)
-    if [ ! -b "$LOOP1" ]; then
-        echo "$test_name: $DESCRIPTION: skipped (no loop devices)"
-        rm -f $TMPFILE.1 $TMPFILE.2
-        exit 0
-    fi
-    LOOP2=$(losetup --show --sector-size 4096 -f $TMPFILE.2)
-    if [ ! -b "$LOOP2" ]; then
-        echo "$test_name: $DESCRIPTION: skipped (no loop devices)"
-        rm -f $TMPFILE.1 $TMPFILE.2
-	losetup -d $LOOP1
-        exit 0
+    LOOP=$(losetup --show -f $TMPFILE)
+    if [ ! -b "$LOOP" ]; then
+         echo "$test_name: $DESCRIPTION: skipped (no loop devices)"
+         rm -f $TMPFILE
+         exit 0
     fi
 
-    echo $MKE2FS -o Linux -t ext4 $LOOP1 >> $LOG 2>&1
-    $MKE2FS -o Linux -t ext4 $LOOP1 >> $LOG 2>&1
+    cmd="$MKE2FS -o Linux -t ext4 -b 4096"
+    echo "$cmd $LOOP" >> $LOG
+    $cmd $LOOP >> $LOG 2>&1
+    losetup -d $LOOP
     sync
-    stat $TMPFILE.1 >> $LOG 2>&1
-    SZ=$(stat -c "%b" $TMPFILE.1)
-    if test $SZ -gt 10000 ; then
-	echo "> 10000" > $OUT
-    else
-	echo "$SZ" > $OUT
+    stat $TMPFILE >> $LOG 2>&1
+    BLOCKS_DEF=$(stat -c "%b" $TMPFILE)
+
+    > $TMPFILE
+    dd if=/dev/zero of=$TMPFILE bs=1 count=0 seek=$FILE_SIZE >> $LOG 2>&1
+    LOOP=$(losetup --show -f $TMPFILE)
+    if [ ! -b "$LOOP" ]; then
+         echo "$test_name: $DESCRIPTION: skipped (no loop devices)"
+         rm -f $TMPFILE
+         exit 0
     fi
 
-    echo $MKE2FS -o Linux -t ext4 -E assume_storage_prezeroed=1 $LOOP2 >> $LOG 2>&1
-    $MKE2FS -o Linux -t ext4 -E assume_storage_prezeroed=1 $LOOP2 >> $LOG 2>&1
+    cmd+=" -E assume_storage_prezeroed=1"
+    echo "$cmd $LOOP" >> $LOG
+    $cmd $TMPFILE >> $LOG 2>&1
+    losetup -d $LOOP
     sync
-    stat $TMPFILE.2 >> $LOG 2>&1
-    stat -c "%b" $TMPFILE.2 >> $OUT
+    stat $TMPFILE >> $LOG 2>&1
+    BLOCKS_ASP=$(stat -c "%b" $TMPFILE)
 
-    losetup -d $LOOP1
-    losetup -d $LOOP2
-    rm -f $TMPFILE.1 $TMPFILE.2
+    echo "blocks_dev: $BLOCKS_DEF blocks_asp: ${BLOCKS_ASP}" >> $LOG
 
-    cmp -s $OUT $EXP
-    status=$?
-
-    if [ "$status" = 0 ] ; then
+    # should use less than 1/20 of the blocks with assume_storage_prezeroed
+    if (( $BLOCKS_DEF > $BLOCKS_ASP * 40 )) ; then
 	echo "$test_name: $test_description: ok"
 	touch $test_name.ok
     else
@@ -60,4 +56,4 @@ else
 	diff $EXP $OUT >> $test_name.failed
     fi
 fi
-unset LOG OUT EXP FILE_SIZE LOOP1 LOOP2
+unset LOG OUT EXP FILE_SIZE LOOP
