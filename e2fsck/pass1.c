@@ -3008,6 +3008,7 @@ static errcode_t e2fsck_pass1_thread_prepare(e2fsck_t global_ctx,
 	ext2_filsys		thread_fs;
 	ext2_filsys		global_fs = global_ctx->fs;
 	struct e2fsck_thread	*tinfo;
+	int			total_inodes;
 	dgrp_t			grp;
 
 	assert(global_ctx->inode_used_map == NULL);
@@ -3100,9 +3101,12 @@ static errcode_t e2fsck_pass1_thread_prepare(e2fsck_t global_ctx,
 	tinfo->et_log_length = 0;
 	if (thread_context->options & E2F_OPT_MULTITHREAD)
 		log_out(thread_context,
-			_("Scan group range [%d, %d), inode_count = %u/%u\n"),
-			tinfo->et_group_start, tinfo->et_group_end,
-			tinfo->et_inode_count, average_inodes);
+			_("Scan group range [%d, %d], used inodes %u/%u\n"),
+			tinfo->et_group_start,
+			tinfo->et_group_end ? tinfo->et_group_end - 1 : 0,
+			tinfo->et_inode_count,
+			(tinfo->et_group_end - tinfo->et_group_start) *
+				global_fs->super->s_inodes_per_group );
 	thread_context->fs = thread_fs;
 	retval = quota_init_context(&thread_context->qctx, thread_fs, 0);
 	if (retval) {
@@ -3637,13 +3641,15 @@ static void *e2fsck_pass1_thread(void *arg)
 	e2fsck_pass1_run(thread_ctx);
 
 out:
-	if (thread_ctx->options & E2F_OPT_MULTITHREAD)
+	if (thread_ctx->options & E2F_OPT_MULTITHREAD) {
+		dgrp_t end = thread_ctx->thread_info.et_group_end;
+
 		log_out(thread_ctx,
-			_("Scanned group range [%u, %u), inodes %u/%u\n"),
-			thread_ctx->thread_info.et_group_start,
-			thread_ctx->thread_info.et_group_end,
+			_("Scanned group range [%u, %u], used inodes %u/%u\n"),
+			thread_ctx->thread_info.et_group_start, end ? end - 1 : 0,
 			thread_ctx->thread_info.et_inode_count,
 			thread_ctx->thread_info.et_inode_number);
+	}
 
 #ifdef DEBUG_THREADS
 	pthread_mutex_lock(&thread_debug->etd_mutex);
@@ -3655,6 +3661,7 @@ out:
 	return NULL;
 }
 
+/* return the average number of groups per thread */
 static dgrp_t ext2fs_get_avg_group(ext2_filsys fs)
 {
 	dgrp_t average_group = fs->group_desc_count;
@@ -3682,17 +3689,18 @@ out:
 	return average_group;
 }
 
+/* return the average number of used inodes to scan per thread */
 static dgrp_t ext2fs_get_avg_inodes(ext2_filsys fs)
 {
-	ext2_ino_t average_inodes = fs->super->s_inodes_count;
+	ext2_ino_t average_inodes = fs->super->s_inodes_count -
+				    fs->super->s_free_inodes_count;
+
 #ifdef HAVE_PTHREAD
 
 	if (fs->fs_num_threads <= 1)
 		goto out;
 
-	average_inodes = fs->super->s_inodes_count / fs->fs_num_threads;
-	if (average_inodes <= fs->super->s_inodes_per_group)
-		average_inodes = fs->super->s_inodes_per_group;
+	average_inodes /= fs->fs_num_threads;
 
 out:
 #endif
