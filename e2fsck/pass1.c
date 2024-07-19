@@ -4745,6 +4745,17 @@ static void scan_extent_node(e2fsck_t ctx, struct problem_context *pctx,
 	while ((pctx->errcode == 0 ||
 		pctx->errcode == EXT2_ET_EXTENT_CSUM_INVALID) &&
 	       info.num_entries-- > 0) {
+		__u16 badness;
+
+		if (ctx->inode_badness &&
+		    !ext2fs_icount_fetch(ctx->inode_badness,
+					pb->ino, &badness) &&
+		    badness > ctx->inode_badness_threshold) {
+			log_out(ctx, "Inode %lu is badly corrupt, skipping block check\n",
+				pb->ino);
+			return;
+		}
+
 		is_leaf = extent.e_flags & EXT2_EXTENT_FLAGS_LEAF;
 		is_dir = LINUX_S_ISDIR(pctx->inode->i_mode);
 		last_lblk = extent.e_lblk + extent.e_len - 1;
@@ -5588,6 +5599,7 @@ static int process_block(ext2_filsys fs,
 	int	ret_code = 0;
 	problem_t	problem = 0;
 	e2fsck_t	ctx;
+	__u16		badness;
 
 	p = (struct process_block_struct *) priv_data;
 	pctx = p->pctx;
@@ -5610,6 +5622,14 @@ static int process_block(ext2_filsys fs,
 
 	if (blk == 0)
 		return 0;
+
+	if (ctx->inode_badness &&
+	    !ext2fs_icount_fetch(ctx->inode_badness, p->ino, &badness) &&
+	    badness > ctx->inode_badness_threshold) {
+		log_out(ctx, "Inode %lu is badly corrupt, skipping block check\n",
+			p->ino);
+		return BLOCK_ABORT;
+	}
 
 #if 0
 	printf("Process_block, inode %lu, block %u, #%d\n", p->ino, blk,
