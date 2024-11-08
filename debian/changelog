@@ -1,3 +1,9 @@
+e2fsprogs (1.47.1-wc2) unstable; urgency=medium
+
+  * e2fsck: skip block scanning if the inode is too bad
+
+ -- Andreas Dilger <adilger@whamcloud.com>  Fri, 18 May 2024 11:30:29 +1100
+
 e2fsprogs (1.47.1-wc1) unstable; urgency=medium
 
   * Whamcloud Lustre-patched release 1.47.1-wc1
