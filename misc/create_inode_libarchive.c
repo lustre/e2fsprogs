@@ -22,10 +22,11 @@
 
 /* If ./configure was run with --without-libarchive, then only
  * __populate_fs_from_tar() remains in this file and will return an error. */
-errcode_t __populate_fs_from_tar(ext2_filsys, ext2_ino_t, const char *,
-                                 ext2_ino_t, struct hdlinks_s *,
-                                 struct file_info *,
-                                 struct fs_ops_callbacks *) {
+errcode_t __populate_fs_from_tar(ext2_filsys fs, ext2_ino_t root_ino,
+				 const char *source_tar, ext2_ino_t root,
+				 struct hdlinks_s *hdlinks,
+				 struct file_info *target,
+				 struct fs_ops_callbacks *fs_callbacks) {
   com_err(__func__, 0,
           _("you need to compile e2fsprogs without --without-libarchive"
             "be able to process tarballs"));
