@@ -43,6 +43,7 @@ fsck tool that are included here.
 Summary: Ext2 filesystem-specific static libraries and headers.
 Group: Development/Libraries
 Requires: e2fsprogs = %{version}
+Provides: ldiskfsprogs-devel = %{version}-%{release}
 
 %description devel
 E2fsprogs-devel contains the libraries and header files needed to

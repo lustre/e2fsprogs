@@ -80,6 +80,7 @@ Requires: gawk
 Requires: pkgconfig
 Requires(post): info
 Requires(preun): info
+Provides: ldiskfsprogs-devel = %{version}-%{release}
 
 %description devel
 E2fsprogs-devel contains the libraries and header files needed to

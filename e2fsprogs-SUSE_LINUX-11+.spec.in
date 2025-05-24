@@ -131,6 +131,7 @@ License:        LGPL-2.0
 Group:          Development/Libraries/C and C++
 Requires:       libcom_err-devel
 Requires:       libext2fs2 = %{version}-%{release}
+Provides:       ldiskfsprogs-devel = %{version}-%{release}
 
 %if %{build_mini}
 %description -n libext2fs-mini-devel
