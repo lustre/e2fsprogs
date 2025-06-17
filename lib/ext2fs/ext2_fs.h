@@ -1150,6 +1150,17 @@ static inline unsigned int ext2fs_dirdata_rec_len(struct ext2_dir_entry *de,
 	return rec_len;
 }
 
+static inline unsigned int ext2fs_dir_rec_padding(struct ext2_dir_entry *de)
+{
+	unsigned int len = (de->name_len & EXT2_NAME_LEN) +
+		ext2_get_dirdata_size(de);
+
+	len &= EXT2_DIR_ROUND;
+	if (len)
+		len = EXT2_DIR_PAD - len;
+	return len;
+}
+
 /* lu_fid size and NUL char */
 #define EXT2_DIRENT_LUFID_SIZE		16
 #define EXT2_DIRENT_LUFID		0x10
