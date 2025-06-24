@@ -1,3 +1,11 @@
+e2fsprogs (1.47.2-wc2) unstable; urgency=medium
+
+  * ext2fs: fix fast symlink blockscheck
+  * e2fsck: support duplicate dentry rename with dirdata
+  * build: RPM should provide ldiskfsprogs-devel
+
+ -- Dongyang Li <dongyangli@ddn.com>  Wed, 25 Jun 2025 09:34:33 +1100
+
 e2fsprogs (1.47.2-wc1) unstable; urgency=medium
 
   * Whamcloud Lustre-patched release 1.47.2-wc1
