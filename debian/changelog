@@ -1,3 +1,28 @@
+e2fsprogs (1.47.3-wc1) unstable; urgency=medium
+
+  * Whamcloud Lustre-patched release 1.47.3-wc1
+  * e2fsck: add parallel fsck with "-m" option
+  * mke2fs: disable metadata_csum_seed/orphan_file
+  * filefrag: Lustre changes to filefrag FIEMAP handling
+  * e2fsck: allow deleting or zeroing shared blocks
+  * e2fsck: add support for expanding the inode size
+  * e2fsck: track errors/badness found for each inode
+  * e2fsck: add support for dirdata feature
+  * debugfs: decode and dump xattrs on inode stat
+  * mke2fs: avoid inode number error with large FS
+  * mke2fs: allow 64bit feature without extents
+  * mke2fs: avoid too large stride and stripe_width
+  * e2fsck: check trusted.link when fixing nlink
+  * e2fsck: use rb-tree to track EA reference counts
+  * mke2fs: add "-E iops" to set IOPS storage group
+  * tune2fs: add "-E iops" to set/clear IOPS groups
+  * mke2fs: try to pack the GDT blocks together
+  * e2fsprogs: support EXT2_BG_TRIMMED and EXT2_FLAGS_TRACK_TRIM
+  * debugfs: allow debugfs to disable MMP directly
+  * ext2fs: fix fast symlink blockscheck
+
+ -- Dongyang Li <dongyangli@ddn.com>  Fri, 08 Aug 2025 20:15:07 +1100
+
 e2fsprogs (1.47.3-1) unstable; urgency=medium
 
   * New upstream version
