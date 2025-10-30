@@ -4756,8 +4756,9 @@ static void scan_extent_node(e2fsck_t ctx, struct problem_context *pctx,
 		    !ext2fs_icount_fetch(ctx->inode_badness,
 					pb->ino, &badness) &&
 		    badness > ctx->inode_badness_threshold) {
-			log_out(ctx, "Inode %lu is badly corrupt, skipping block check\n",
-				pb->ino);
+			log_out(ctx,
+				"Inode %lu badly corrupt, skip extent check\n",
+				(unsigned long)pb->ino);
 			return;
 		}
 
@@ -5631,8 +5632,9 @@ static int process_block(ext2_filsys fs,
 	if (ctx->inode_badness &&
 	    !ext2fs_icount_fetch(ctx->inode_badness, p->ino, &badness) &&
 	    badness > ctx->inode_badness_threshold) {
-		log_out(ctx, "Inode %lu is badly corrupt, skipping block check\n",
-			p->ino);
+		log_out(ctx,
+			"Inode %lu is badly corrupt, skipping block check\n",
+			(unsigned long)p->ino);
 		return BLOCK_ABORT;
 	}
 

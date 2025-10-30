@@ -152,7 +152,7 @@ static void write_dquots(dict_t *dict, struct quota_handle *qh)
 	struct dquot	*dq;
 
 	for (n = dict_first(dict); n; n = dict_next(dict, n)) {
-		dq = dnode_get(n);
+		dq = dict_node_get(n);
 		if (dq) {
 			print_dquot("write", dq);
 			dq->dq_h = qh;
@@ -282,7 +282,7 @@ static inline qid_t get_qid(struct ext2_inode_large *inode, enum quota_type qtyp
 static void quota_dnode_free(dnode_t *node,
 			     void *context EXT2FS_ATTR((unused)))
 {
-	void *ptr = node ? dnode_get(node) : 0;
+	void *ptr = node ? dict_node_get(node) : 0;
 
 	ext2fs_free_mem(&ptr);
 	free(node);
@@ -369,7 +369,7 @@ static struct dquot *get_dq(dict_t *dict, __u32 key)
 
 	n = dict_lookup(dict, UINT_TO_VOIDPTR(key));
 	if (n)
-		dq = dnode_get(n);
+		dq = dict_node_get(n);
 	else {
 		if (ext2fs_get_mem(sizeof(struct dquot), &dq)) {
 			log_err("Unable to allocate dquot");
@@ -624,7 +624,7 @@ static errcode_t merge_usage(dict_t *dest, dict_t *src)
 	struct dquot *src_dq, *dest_dq;
 
 	for (n = dict_first(src); n; n = dict_next(src, n)) {
-		src_dq = dnode_get(n);
+		src_dq = dict_node_get(n);
 		if (!src_dq)
 			continue;
 		dest_dq = get_dq(dest, src_dq->dq_id);
@@ -694,7 +694,7 @@ errcode_t quota_compare_and_update(quota_ctx_t qctx, enum quota_type qtype,
 	}
 
 	for (n = dict_first(dict); n; n = dict_next(dict, n)) {
-		dq = dnode_get(n);
+		dq = dict_node_get(n);
 		if (!dq)
 			continue;
 		if ((dq->dq_flags & DQF_SEEN) == 0) {

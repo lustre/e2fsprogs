@@ -129,7 +129,7 @@ static void add_dupe(e2fsck_t ctx, ext2_ino_t ino, blk64_t cluster,
 
 	n = dict_lookup(&clstr_dict, INT_TO_VOIDPTR(cluster));
 	if (n)
-		db = (struct dup_cluster *) dnode_get(n);
+		db = (struct dup_cluster *) dict_node_get(n);
 	else {
 		db = (struct dup_cluster *) e2fsck_allocate_memory(ctx,
 			sizeof(struct dup_cluster), "duplicate cluster header");
@@ -146,7 +146,7 @@ static void add_dupe(e2fsck_t ctx, ext2_ino_t ino, blk64_t cluster,
 
 	n = dict_lookup(&ino_dict, INT_TO_VOIDPTR(ino));
 	if (n)
-		di = (struct dup_inode *) dnode_get(n);
+		di = (struct dup_inode *) dict_node_get(n);
 	else {
 		di = (struct dup_inode *) e2fsck_allocate_memory(ctx,
 			 sizeof(struct dup_inode), "duplicate inode header");
@@ -178,7 +178,7 @@ static void inode_dnode_free(dnode_t *node,
 	struct dup_inode	*di;
 	struct cluster_el		*p, *next;
 
-	di = (struct dup_inode *) dnode_get(node);
+	di = (struct dup_inode *) dict_node_get(node);
 	for (p = di->cluster_list; p; p = next) {
 		next = p->next;
 		ext2fs_free_mem(&p);
@@ -196,7 +196,7 @@ static void cluster_dnode_free(dnode_t *node,
 	struct dup_cluster	*dc;
 	struct inode_el		*p, *next;
 
-	dc = (struct dup_cluster *) dnode_get(node);
+	dc = (struct dup_cluster *) dict_node_get(node);
 	for (p = dc->inode_list; p; p = next) {
 		next = p->next;
 		ext2fs_free_mem(&p);
@@ -482,7 +482,7 @@ static int search_dirent_proc(ext2_ino_t dir, int entry,
 	n = dict_lookup(&ino_dict, INT_TO_VOIDPTR(dirent->inode));
 	if (!n)
 		return 0;
-	p = (struct dup_inode *) dnode_get(n);
+	p = (struct dup_inode *) dict_node_get(n);
 	if (!p->dir) {
 		p->dir = dir;
 		sd->count--;
@@ -541,10 +541,10 @@ static void pass1d(e2fsck_t ctx, char *block_buf)
 				sizeof(ext2_ino_t) * dict_count(&ino_dict),
 				"Shared inode list");
 	for (n = dict_first(&ino_dict); n; n = dict_next(&ino_dict, n)) {
-		p = (struct dup_inode *) dnode_get(n);
+		p = (struct dup_inode *) dict_node_get(n);
 		shared_len = 0;
 		file_ok = 1;
-		ino = (ext2_ino_t)VOIDPTR_TO_INT(dnode_getkey(n));
+		ino = (ext2_ino_t)VOIDPTR_TO_INT(dict_node_getkey(n));
 		if (ino == EXT2_BAD_INO || ino == EXT2_RESIZE_INO)
 			continue;
 
@@ -559,7 +559,7 @@ static void pass1d(e2fsck_t ctx, char *block_buf)
 					INT_TO_VOIDPTR(s->cluster));
 			if (!m)
 				continue; /* Should never happen... */
-			q = (struct dup_cluster *) dnode_get(m);
+			q = (struct dup_cluster *) dict_node_get(m);
 			if (q->num_bad > 1)
 				file_ok = 0;
 			if (q->num_bad == 1 && (ctx->clone == E2F_CLONE_ZERO ||
@@ -607,7 +607,7 @@ static void pass1d(e2fsck_t ctx, char *block_buf)
 			m = dict_lookup(&ino_dict, INT_TO_VOIDPTR(shared[i]));
 			if (!m)
 				continue; /* should never happen */
-			t = (struct dup_inode *) dnode_get(m);
+			t = (struct dup_inode *) dict_node_get(m);
 			/*
 			 * Report the inode that we are sharing with
 			 */
@@ -707,7 +707,7 @@ static int delete_file_block(ext2_filsys fs,
 		n = dict_lookup(&clstr_dict, INT_TO_VOIDPTR(c));
 		if (n) {
 			if (lc != pb->cur_cluster) {
-				p = (struct dup_cluster *) dnode_get(n);
+				p = (struct dup_cluster *) dict_node_get(n);
 				decrement_badcount(ctx, *block_nr, p);
 				pb->dup_blocks++;
 			}
@@ -878,7 +878,7 @@ static int clone_file_block(ext2_filsys fs,
 			return 0;
 		}
 
-		p = (struct dup_cluster *) dnode_get(n);
+		p = (struct dup_cluster *) dict_node_get(n);
 
 		cs->dup_cluster = c;
 		/*
@@ -1037,7 +1037,7 @@ static errcode_t clone_file(e2fsck_t ctx, ext2_ino_t ino,
 			retval = 0; /* OK to stumble on... */
 			goto errout;
 		}
-		dc = (struct dup_cluster *) dnode_get(n);
+		dc = (struct dup_cluster *) dict_node_get(n);
 		for (ino_el = dc->inode_list; ino_el; ino_el = ino_el->next) {
 			if (ino_el->inode == ino)
 				continue;
@@ -1050,7 +1050,7 @@ static errcode_t clone_file(e2fsck_t ctx, ext2_ino_t ino,
 				retval = 0; /* OK to stumble on... */
 				goto errout;
 			}
-			di = (struct dup_inode *) dnode_get(n);
+			di = (struct dup_inode *) dict_node_get(n);
 			if (ext2fs_file_acl_block(fs,
 					EXT2_INODE(&di->inode)) == blk) {
 				ext2fs_file_acl_block_set(fs,

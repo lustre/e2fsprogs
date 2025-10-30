@@ -77,8 +77,8 @@ static const char rcsid[] = "$Id: dict.c,v 1.40.2.7 2000/11/13 01:36:44 kaz Exp 
 #define dict_nil(D) (&(D)->nilnode)
 #define DICT_DEPTH_MAX 64
 
-static dnode_t *dnode_alloc(void *context);
-static void dnode_free(dnode_t *node, void *context);
+static dnode_t *dict_node_alloc(void *context);
+static void dict_node_free(dnode_t *node, void *context);
 
 /*
  * Perform a ``left rotation'' adjustment on the tree.  The given node P and
@@ -265,8 +265,8 @@ dict_t *dict_create(dictcount_t maxcount, dict_comp_t comp)
 
     if (new) {
 	new->compare = comp;
-	new->allocnode = dnode_alloc;
-	new->freenode = dnode_free;
+	new->allocnode = dict_node_alloc;
+	new->freenode = dict_node_free;
 	new->context = NULL;
 	new->cmp_ctx = NULL;
 	new->nodecount = 0;
@@ -291,8 +291,8 @@ void dict_set_allocator(dict_t *dict, dnode_alloc_t al,
     dict_assert (dict_count(dict) == 0);
     dict_assert ((al == NULL && fr == NULL) || (al != NULL && fr != NULL));
 
-    dict->allocnode = al ? al : dnode_alloc;
-    dict->freenode = fr ? fr : dnode_free;
+    dict->allocnode = al ? al : dict_node_alloc;
+    dict->freenode = fr ? fr : dict_node_free;
     dict->context = context;
 }
 
@@ -351,8 +351,8 @@ void dict_free(dict_t *dict)
 dict_t *dict_init(dict_t *dict, dictcount_t maxcount, dict_comp_t comp)
 {
     dict->compare = comp;
-    dict->allocnode = dnode_alloc;
-    dict->freenode = dnode_free;
+    dict->allocnode = dict_node_alloc;
+    dict->freenode = dict_node_free;
     dict->context = NULL;
     dict->nodecount = 0;
     dict->maxcount = maxcount;
@@ -853,7 +853,7 @@ int dict_alloc_insert(dict_t *dict, const void *key, void *data)
     dnode_t *node = dict->allocnode(dict->context);
 
     if (node) {
-	dnode_init(node, data);
+	dict_node_init(node, data);
 	dict_insert(dict, node, key);
 	return 1;
     }
@@ -962,9 +962,9 @@ void dict_allow_dupes(dict_t *dict)
 #undef dict_count
 #undef dict_isempty
 #undef dict_isfull
-#undef dnode_get
-#undef dnode_put
-#undef dnode_getkey
+#undef dict_node_get
+#undef dict_node_put
+#undef dict_node_getkey
 
 dictcount_t dict_count(dict_t *dict)
 {
@@ -986,17 +986,17 @@ int dict_contains(dict_t *dict, dnode_t *node)
     return verify_dict_has_node(dict_nil(dict), dict_root(dict), node);
 }
 
-static dnode_t *dnode_alloc(void *context EXT2FS_ATTR((unused)))
+static dnode_t *dict_node_alloc(void *context EXT2FS_ATTR((unused)))
 {
-    return malloc(sizeof *dnode_alloc(NULL));
+    return malloc(sizeof *dict_node_alloc(NULL));
 }
 
-static void dnode_free(dnode_t *node, void *context EXT2FS_ATTR((unused)))
+static void dict_node_free(dnode_t *node, void *context EXT2FS_ATTR((unused)))
 {
     free(node);
 }
 
-dnode_t *dnode_create(void *data)
+dnode_t *dict_node_create(void *data)
 {
     dnode_t *new = malloc(sizeof *new);
     if (new) {
@@ -1008,7 +1008,7 @@ dnode_t *dnode_create(void *data)
     return new;
 }
 
-dnode_t *dnode_init(dnode_t *dnode, void *data)
+dnode_t *dict_node_init(dnode_t *dnode, void *data)
 {
     dnode->data = data;
     dnode->parent = NULL;
@@ -1017,24 +1017,24 @@ dnode_t *dnode_init(dnode_t *dnode, void *data)
     return dnode;
 }
 
-void dnode_destroy(dnode_t *dnode)
+void dict_node_destroy(dnode_t *dnode)
 {
     dict_assert (!dnode_is_in_a_dict(dnode));
     free(dnode);
 }
 
-void *dnode_get(dnode_t *dnode)
+void *dict_node_get(dnode_t *dnode)
 {
     return dnode->data;
 }
 
-const void *dnode_getkey(dnode_t *dnode)
+const void *dict_node_getkey(dnode_t *dnode)
 {
     return dnode->key;
 }
 
 #ifdef E2FSCK_NOTUSED
-void dnode_put(dnode_t *dnode, void *data)
+void dict_node_put(dnode_t *dnode, void *data)
 {
     dnode->data = data;
 }
@@ -1346,14 +1346,14 @@ static void construct(dict_t *d)
 		}
 		key = dupstring(tok1);
 		val = dupstring(tok2);
-		dn = dnode_create(val);
+		dn = dict_node_create(val);
 
 		if (!key || !val || !dn) {
 		    puts("out of memory");
 		    free((void *) key);
 		    free(val);
 		    if (dn)
-			dnode_destroy(dn);
+			dict_node_destroy(dn);
 		}
 
 		dict_load_next(&dl, dn, key);
@@ -1441,8 +1441,8 @@ int main(void)
 		    puts("dict_lookup failed");
 		    break;
 		}
-		val = dnode_get(dn);
-		key = dnode_getkey(dn);
+		val = dict_node_get(dn);
+		key = dict_node_getkey(dn);
 		dict_delete_free(d, dn);
 
 		free(val);
@@ -1474,7 +1474,7 @@ int main(void)
 		    puts("lookup failed");
 		    break;
 		}
-		val = dnode_get(dn);
+		val = dict_node_get(dn);
 		puts(val);
 		break;
 	    case 'm':
@@ -1488,8 +1488,8 @@ int main(void)
 		break;
 	    case 't':
 		for (dn = dict_first(d); dn; dn = dict_next(d, dn)) {
-		    printf("%s\t%s\n", (char *) dnode_getkey(dn),
-			    (char *) dnode_get(dn));
+		    printf("%s\t%s\n", (char *) dict_node_getkey(dn),
+			    (char *) dict_node_get(dn));
 		}
 		break;
 	    case 'q':

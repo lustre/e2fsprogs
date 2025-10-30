@@ -115,12 +115,12 @@ extern int dict_isfull(dict_t *);
 extern int dict_contains(dict_t *, dnode_t *);
 extern void dict_allow_dupes(dict_t *);
 extern int dnode_is_in_a_dict(dnode_t *);
-extern dnode_t *dnode_create(void *);
-extern dnode_t *dnode_init(dnode_t *, void *);
-extern void dnode_destroy(dnode_t *);
-extern void *dnode_get(dnode_t *);
-extern const void *dnode_getkey(dnode_t *);
-extern void dnode_put(dnode_t *, void *);
+extern dnode_t *dict_node_create(void *);
+extern dnode_t *dict_node_init(dnode_t *, void *);
+extern void dict_node_destroy(dnode_t *);
+extern void *dict_node_get(dnode_t *);
+extern const void *dict_node_getkey(dnode_t *);
+extern void dict_node_put(dnode_t *, void *);
 extern void dict_process(dict_t *, void *, dnode_process_t);
 extern void dict_load_begin(dict_load_t *, dict_t *);
 extern void dict_load_next(dict_load_t *, dnode_t *, const void *);
@@ -135,9 +135,9 @@ extern void dict_merge(dict_t *, dict_t *);
 #endif
 #define dict_count(D) ((D)->dict_nodecount)
 #define dict_isempty(D) ((D)->dict_nodecount == 0)
-#define dnode_get(N) ((N)->dict_data)
-#define dnode_getkey(N) ((N)->dict_key)
-#define dnode_put(N, X) ((N)->dict_data = (X))
+#define dict_node_get(N) ((N)->dict_data)
+#define dict_node_getkey(N) ((N)->dict_key)
+#define dict_node_put(N, X) ((N)->dict_data = (X))
 #endif
 
 #ifdef __cplusplus
