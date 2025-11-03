@@ -150,6 +150,9 @@ It was originally inspired by the Multics SubSystem library.
 %setup -q
 
 %build
+%if "%{?dist}" == ".el7"
+  RPM_OPT_FLAGS="-std=gnu11 $RPM_OPT_FLAGS"
+%endif
 %configure CFLAGS="$RPM_OPT_FLAGS -fno-strict-aliasing" \
 	   --enable-elf-shlibs --enable-nls --disable-uuidd --disable-fsck \
 	   --disable-e2initrd-helper --disable-libblkid --disable-libuuid \
